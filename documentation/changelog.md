@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved JSON field handling in PocketBase service
 - Fallback profile creation for users without a profile
 - CSRF protection for all sensitive API endpoints including profile updates and image enhancement
+- Automated security audit tool for vulnerability detection and reporting
+- Enhanced HTTP security headers with HSTS, CSP and clickjacking protection
+- Request logging middleware with timing and metadata for monitoring
+- Authentication performance optimization with user data caching
+- Success notification toast for profile updates
 
 ### Changed
 - Enhanced security by keeping API tokens and sensitive operations server-side
@@ -34,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed CSRF token handling in profile update API to prevent 403 Forbidden errors
 - Applied CSRF protection to the image enhancement API endpoint
 - Updated frontend code to properly include CSRF tokens in all API requests
+- Implemented additional HTTP security headers using Helmet.js
+- Enhanced rate limiting with different thresholds for sensitive endpoints
+- Optimized authentication performance through user data caching
+- Added CSRF protection for all state-changing operations
 
 ### Fixed
 - Bug: Profile update failing with CSRF token validation errors

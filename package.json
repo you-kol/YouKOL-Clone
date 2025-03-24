@@ -12,7 +12,8 @@
     "init-pb": "node setup/initialize-pocketbase.js",
     "check-pb": "node test/check-pocketbase.js",
     "test-auth": "node test/test-auth-routes.js",
-    "test-auth-with-server": "powershell -Command \"$env:NODE_ENV='test'; start-process node -ArgumentList 'server.js' -NoNewWindow; sleep 2; node test/test-auth-routes.js\""
+    "test-auth-with-server": "powershell -Command \"$env:NODE_ENV='test'; start-process node -ArgumentList 'server.js' -NoNewWindow; sleep 2; node test/test-auth-routes.js\"",
+    "security-audit": "node server/tools/security-audit.js"
   },
   "dependencies": {
     "axios": "1.8.4",

@@ -77,6 +77,37 @@ app.use(cors({
 // Parse cookies
 app.use(cookieParser());
 
+// Request logging middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  
+  // Log the incoming request
+  logger.info(`📥 ${req.method} ${req.originalUrl}`, {
+    requestId: req.headers['x-request-id'] || Date.now().toString(),
+    userAgent: req.headers['user-agent'],
+    ip: req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress,
+    contentType: req.headers['content-type']
+  });
+  
+  // Intercept the response
+  const originalSend = res.send;
+  res.send = function(body) {
+    const duration = Date.now() - startTime;
+    
+    // Log the response (but don't log large responses or sensitive data)
+    logger.info(`📤 ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`, {
+      requestId: req.headers['x-request-id'] || Date.now().toString(),
+      statusCode: res.statusCode,
+      duration: duration,
+      contentLength: res.get('Content-Length') || (body ? body.length : 0),
+    });
+    
+    return originalSend.call(this, body);
+  };
+  
+  next();
+});
+
 // Configure session middleware
 app.use(configureSession());
 
@@ -96,7 +127,19 @@ app.use(helmet({
   },
   xssFilter: true,
   noSniff: true,
-  referrerPolicy: { policy: 'same-origin' }
+  referrerPolicy: { policy: 'same-origin' },
+  // Additional security headers
+  hsts: {
+    maxAge: 31536000, // 1 year in seconds
+    includeSubDomains: true,
+    preload: true
+  },
+  frameguard: { action: 'deny' }, // Prevent clickjacking
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' }, // Restrict Adobe Flash and PDFs
+  expectCt: {
+    enforce: true,
+    maxAge: 86400 // 1 day in seconds
+  }
 }));
 
 // CSRF protection middleware

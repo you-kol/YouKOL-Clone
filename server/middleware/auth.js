@@ -6,6 +6,20 @@ const loginAttempts = new Map();
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_TIME = 15 * 60 * 1000; // 15 minutes
 
+// Authentication optimization: Add user data cache
+const userDataCache = new Map();
+const USER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
+
+// Periodic cache cleanup (every 10 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, data] of userDataCache.entries()) {
+    if (now > data.expiry) {
+      userDataCache.delete(key);
+    }
+  }
+}, 10 * 60 * 1000);
+
 /**
  * Helper function to track failed login attempts by IP
  * @param {string} ip - The IP address
@@ -93,6 +107,7 @@ function requireAuth(req, res, next) {
 /**
  * Middleware to attach user data to the request object if authenticated
  * Does not block the request if user is not authenticated
+ * Optimized with caching for better performance
  * 
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -106,8 +121,26 @@ async function attachUserData(req, res, next) {
       return next();
     }
     
-    // Get user data from PocketBase
-    const userData = await pbService.getCompleteUserData(req.session.userId);
+    const userId = req.session.userId;
+    const now = Date.now();
+    let userData;
+    
+    // Check cache first
+    if (userDataCache.has(userId) && now < userDataCache.get(userId).expiry) {
+      userData = userDataCache.get(userId).data;
+      logger.debug('Using cached user data', { userId });
+    } else {
+      // Cache miss or expired, fetch from PocketBase
+      userData = await pbService.getCompleteUserData(userId);
+      
+      // Store in cache
+      userDataCache.set(userId, {
+        data: userData,
+        expiry: now + USER_CACHE_TTL
+      });
+      
+      logger.debug('Fetched and cached user data', { userId });
+    }
     
     // Attach user data to request object
     req.user = {
@@ -127,8 +160,14 @@ async function attachUserData(req, res, next) {
       error: error.message
     });
     
-    // Clear invalid session
+    // Clear invalid session and cache
     if (error.status === 404) {
+      // Remove from cache
+      if (req.session?.userId) {
+        userDataCache.delete(req.session.userId);
+      }
+      
+      // Destroy session
       req.session.destroy(err => {
         if (err) {
           logger.error('Failed to destroy invalid session', { error: err.message });

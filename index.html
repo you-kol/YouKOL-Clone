@@ -276,8 +276,9 @@
                     </div>
                     
                     <div class="flex space-x-3 justify-center mt-6">
+                        <!-- Find the Cancel button in preview state and update it -->
                         <button 
-                            @click="currentState = 'initial'; selectedFiles = []" 
+                            @click="resetAppState()" 
                             class="action-button secondary-button"
                         >
                             Cancel
@@ -392,8 +393,9 @@
                     </div>
                 </div>
                 
+                <!-- Find the New Post button in complete state and update it -->
                 <button 
-                    @click="currentState = 'initial'; selectedFiles = []; postMediaUrls = []" 
+                    @click="resetAppState()" 
                     class="action-button secondary-button"
                 >
                     New Post
@@ -871,6 +873,23 @@
             </div>
         </div>
 
+        <!-- Profile Success Toast Notification -->
+        <div 
+            x-show="showProfileSuccessMessage" 
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 transform translate-y-2"
+            x-transition:enter-end="opacity-100 transform translate-y-0"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 transform translate-y-0"
+            x-transition:leave-end="opacity-0 transform translate-y-2"
+            class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Profile updated successfully!</span>
+        </div>
+
         <!-- Onboarding Modal -->
         <div x-show="showOnboarding" class="fixed inset-0 bg-white z-50 flex flex-col">
             <div class="flex justify-between items-center p-4 border-b">
@@ -1158,6 +1177,9 @@
                 // Onboarding state
                 showOnboarding: false,
                 onboardingStep: 1,
+                
+                // Profile state
+                showProfileSuccessMessage: false,
                 
                 // Fullscreen view related state
                 isFullscreenViewOpen: false,
@@ -1711,13 +1733,16 @@
                         
                         console.log('Profile successfully updated with preferences:', JSON.stringify(this.userProfile.preferences));
                         
-                        // Show success message
+                        // Show success message toast notification
+                        // This will display a green success toast at the bottom right of the screen
+                        // The toast will automatically fade out after 2 seconds
                         this.showProfileSuccessMessage = true;
                         setTimeout(() => {
                             this.showProfileSuccessMessage = false;
-                        }, 3000);
+                            // No longer automatically closing the profile modal
+                        }, 2000);
                         
-                        this.showProfileModal = false;
+                        // this.showProfileModal = false;  // Remove this line as it's redundant
                     } catch (error) {
                         console.error('Update profile error:', error);
                         this.profileError = error.message;
@@ -3393,6 +3418,35 @@
                     
                     // Note: Currently enhancing items will still complete
                     // We could add abort controllers if needed for true cancellation
+                },
+                
+                // Add this function to the app methods (place before the // Profile methods comment)
+                resetAppState() {
+                    // Reset main app state
+                    this.currentState = 'initial';
+                    this.selectedFiles = [];
+                    this.postMediaUrls = [];
+                    
+                    // Reset all enhancement-related state
+                    this.hasEnhanced = {};
+                    this.originalFiles = {};
+                    this.enhancementProgress = {};
+                    this.enhancementErrors = {};
+                    this.currentlyEnhancing = {};
+                    this.batchEnhancementActive = false;
+                    this.enhancementQueue = [];
+                    
+                    // Reset enhancement flags
+                    this.isEnhancing = false;
+                    this.enhancingIndex = null;
+                    
+                    // Reset fullscreen view state
+                    this.isFullscreenViewOpen = false;
+                    this.currentFullscreenIndex = null;
+                    this.currentFullscreenFile = null;
+                    this.isComparisonModeActive = false;
+                    
+                    console.log('App state has been reset');
                 },
             }
         }
