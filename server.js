@@ -203,7 +203,7 @@ app.get('/', (req, res) => {
 });
 
 // Enhanced endpoint for image enhancement that proxies to Deep Image API
-app.post('/api/enhance-image', async (req, res) => {
+app.post('/api/enhance-image', csrfProtection, async (req, res) => {
   try {
     // Check if we have base64 image data
     if (req.body && req.body.image_base64) {

@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Custom PocketBase initialization script for automatic setup
 - Improved JSON field handling in PocketBase service
 - Fallback profile creation for users without a profile
+- CSRF protection for all sensitive API endpoints including profile updates and image enhancement
 
 ### Changed
 - Enhanced security by keeping API tokens and sensitive operations server-side
@@ -30,6 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optimized PocketBase health check with proper error handling
 - Fixed profile creation to properly handle JSON fields
 - Updated .gitignore to exclude PocketBase data and executables
+- Fixed CSRF token handling in profile update API to prevent 403 Forbidden errors
+- Applied CSRF protection to the image enhancement API endpoint
+- Updated frontend code to properly include CSRF tokens in all API requests
+
+### Fixed
+- Bug: Profile update failing with CSRF token validation errors
+- Bug: Image enhancement API returning 500 errors due to missing CSRF token
+- Issue: Frontend not properly passing CSRF tokens to sensitive API endpoints
 
 ### Removed
 - Outdated and redundant authentication documentation files

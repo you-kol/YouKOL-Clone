@@ -810,12 +810,13 @@
                                     <label class="switch">
                                         <input 
                                             type="checkbox" 
-                                            x-bind:checked="userProfile && userProfile.preferences && userProfile.preferences.enhancements && userProfile.preferences.enhancements[option.id] ? true : option.default"
+                                            x-bind:checked="userProfile && userProfile.preferences && userProfile.preferences.enhancements && userProfile.preferences.enhancements[option.id] !== undefined ? userProfile.preferences.enhancements[option.id] : false"
                                             x-on:change="
                                                 if(!userProfile) userProfile = {};
                                                 if(!userProfile.preferences) userProfile.preferences = {};
                                                 if(!userProfile.preferences.enhancements) userProfile.preferences.enhancements = {};
                                                 userProfile.preferences.enhancements[option.id] = $event.target.checked;
+                                                console.log('Changed ' + option.id + ' to ' + $event.target.checked);
                                             ">
                                         <span class="slider round"></span>
                                     </label>
@@ -1583,20 +1584,38 @@
                     
                     try {
                         const response = await fetch('/api/profile', {
+                            headers: this.getRequestHeaders(),
                             credentials: 'include'
                         });
                         
                         const data = await response.json();
                         
                         if (data.success && data.profile) {
+                            // Set up default preferences structure
+                            const preferences = data.profile.preferences || {};
+                            if (!preferences.enhancements) {
+                                preferences.enhancements = {};
+                            }
+                            
+                            // Initialize all enhancement options to false if not already set
+                            this.enhancementOptions.forEach(option => {
+                                if (preferences.enhancements[option.id] === undefined) {
+                                    preferences.enhancements[option.id] = false; // Default to false for all unset preferences
+                                }
+                            });
+
                             this.profileForm = {
                                 displayName: data.profile.displayName || '',
                                 bio: data.profile.bio || '',
-                                preferences: data.profile.preferences || {
-                                    darkMode: false,
-                                    notifications: true
-                                }
+                                preferences: preferences
                             };
+                            
+                            // Also update userProfile to keep both objects in sync
+                            this.userProfile.displayName = data.profile.displayName || '';
+                            this.userProfile.bio = data.profile.bio || '';
+                            this.userProfile.preferences = {...preferences}; // Use copy to avoid reference issues
+                            
+                            console.log('Profile loaded with preferences:', JSON.stringify(this.userProfile.preferences));
                         }
                     } catch (error) {
                         console.error('Failed to load profile:', error);
@@ -1609,23 +1628,45 @@
                         this.profileError = null;
                         this.isUpdatingProfile = true;
                         
+                        // Copy values from profileForm to userProfile for API submission
+                        this.userProfile.displayName = this.profileForm.displayName;
+                        this.userProfile.bio = this.profileForm.bio;
+                        
+                        console.log('Updating profile with:', {
+                            displayName: this.userProfile.displayName,
+                            bio: this.userProfile.bio
+                        });
+                        
                         // Make sure all required preferences are set
                         if (!this.userProfile.preferences) {
                             this.userProfile.preferences = {};
                         }
                         
+                        // Ensure enhancement preferences exist and are properly initialized
                         if (!this.userProfile.preferences.enhancements) {
                             this.userProfile.preferences.enhancements = {};
-                            this.enhancementOptions.forEach(option => {
-                                this.userProfile.preferences.enhancements[option.id] = option.default;
-                            });
+                        }
+                        
+                        // Make sure all enhancement options have a boolean value (default to false if not set)
+                        this.enhancementOptions.forEach(option => {
+                            if (this.userProfile.preferences.enhancements[option.id] === undefined) {
+                                this.userProfile.preferences.enhancements[option.id] = false;
+                            }
+                        });
+                        
+                        console.log('Preferences being saved:', JSON.stringify(this.userProfile.preferences));
+                        
+                        // Make sure we have a CSRF token
+                        if (!this.csrfToken) {
+                            await this.fetchCsrfToken();
+                            if (!this.csrfToken) {
+                                throw new Error('Could not secure the request. Please refresh the page and try again.');
+                            }
                         }
                         
                         const response = await fetch('/api/profile', {
                             method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
+                            headers: this.getRequestHeaders(),
                             body: JSON.stringify({
                                 displayName: this.userProfile.displayName,
                                 bio: this.userProfile.bio,
@@ -1644,9 +1685,31 @@
                         // Update local user data 
                         this.user = {
                             ...this.user,
-                            displayName: data.displayName || data.display_name,
-                            profile_id: data.id
+                            displayName: data.profile.displayName || data.profile.display_name,
+                            profile_id: data.profile.id
                         };
+                        
+                        // Update profile form with the returned data to ensure consistency
+                        this.profileForm = {
+                            displayName: data.profile.displayName || data.profile.display_name || '',
+                            bio: data.profile.bio || '',
+                            preferences: data.profile.preferences || {}
+                        };
+                        
+                        // Update userProfile as well
+                        this.userProfile.displayName = data.profile.displayName || data.profile.display_name || '';
+                        this.userProfile.bio = data.profile.bio || '';
+                        this.userProfile.preferences = data.profile.preferences || {};
+                        
+                        // Make sure preferences have enhancements initialized
+                        if (!this.userProfile.preferences.enhancements) {
+                            this.userProfile.preferences.enhancements = {};
+                            this.enhancementOptions.forEach(option => {
+                                this.userProfile.preferences.enhancements[option.id] = false;
+                            });
+                        }
+                        
+                        console.log('Profile successfully updated with preferences:', JSON.stringify(this.userProfile.preferences));
                         
                         // Show success message
                         this.showProfileSuccessMessage = true;
@@ -2936,13 +2999,19 @@
                     
                     console.log(`Sending image data for enhancement (${base64Image.length} chars)`);
                     
-                    // Make the API call
+                    // Make sure we have a CSRF token
+                    if (!this.csrfToken) {
+                        return this.fetchCsrfToken().then(() => {
+                            return this.callDeepImageAPI(base64Image);
+                        });
+                    }
+                    
+                    // Make the API call with CSRF token
                     return fetch(apiEndpoint, {
                         method: 'POST',
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(payload)
+                        headers: this.getRequestHeaders(),
+                        body: JSON.stringify(payload),
+                        credentials: 'include'
                     })
                     .then(response => {
                         if (!response.ok) {

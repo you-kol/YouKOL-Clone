@@ -145,16 +145,33 @@ router.put('/', [
     // Handle preferences merging
     if (req.body.preferences !== undefined) {
       try {
+        logger.info('Received preferences in update request', { 
+          preferences: JSON.stringify(req.body.preferences)
+        });
+        
         const currentProfile = await pbService.getUserProfile(req.user.id);
         const currentPreferences = currentProfile.preferences || {};
+        
+        // Ensure enhancement preferences exist
+        if (!currentPreferences.enhancements && req.body.preferences.enhancements) {
+          currentPreferences.enhancements = {};
+        }
         
         // Ensure JSON compatibility
         updateData.preferences = {
           ...currentPreferences,
           ...req.body.preferences
         };
+        
+        // Log the merged preferences for debugging
+        logger.info('Merged preferences to save', { 
+          mergedPreferences: JSON.stringify(updateData.preferences)
+        });
       } catch (error) {
         // If profile doesn't exist or error occurs, just use the new preferences
+        logger.info('Using provided preferences directly', {
+          preferences: JSON.stringify(req.body.preferences)
+        });
         updateData.preferences = req.body.preferences;
       }
     }
