@@ -5,7 +5,23 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
+const cookieParser = require('cookie-parser');
 const logger = require('./logger');
+
+// Security enhancements
+const csrf = require('csurf');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
+
+// Import the PocketBase service
+const { pocketBaseService: pbService } = require('./server/services/pocketbase');
+
+// Import session configuration
+const configureSession = require('./server/middleware/session');
+
+// Import routes
+const authRoutes = require('./server/routes/auth');
+const profileRoutes = require('./server/routes/profile');
 
 // Load environment variables
 dotenv.config();
@@ -49,20 +65,118 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
     
-    // Allow all origins if '*' is in the list
-    if (allowedOrigins.includes('*')) {
-      return callback(null, true);
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
     }
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `CORS Error: This server does not allow access from origin ${origin}. Update ALLOWED_ORIGINS in .env file.`;
-      logger.error(`❌ ${msg}`);
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
   },
-  credentials: true
+  credentials: true // Allow cookies to be sent with requests
 }));
+
+// Parse cookies
+app.use(cookieParser());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  
+  // Log the incoming request
+  logger.info(`📥 ${req.method} ${req.originalUrl}`, {
+    requestId: req.headers['x-request-id'] || Date.now().toString(),
+    userAgent: req.headers['user-agent'],
+    ip: req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress,
+    contentType: req.headers['content-type']
+  });
+  
+  // Intercept the response
+  const originalSend = res.send;
+  res.send = function(body) {
+    const duration = Date.now() - startTime;
+    
+    // Log the response (but don't log large responses or sensitive data)
+    logger.info(`📤 ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`, {
+      requestId: req.headers['x-request-id'] || Date.now().toString(),
+      statusCode: res.statusCode,
+      duration: duration,
+      contentLength: res.get('Content-Length') || (body ? body.length : 0),
+    });
+    
+    return originalSend.call(this, body);
+  };
+  
+  next();
+});
+
+// Configure session middleware
+app.use(configureSession());
+
+// Security enhancements: Apply helmet for HTTP security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'cdn.jsdelivr.net', 'cdn.tailwindcss.com'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net'],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'", 'data:', 'blob:'],
+      fontSrc: ["'self'", 'cdn.jsdelivr.net'],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  },
+  xssFilter: true,
+  noSniff: true,
+  referrerPolicy: { policy: 'same-origin' },
+  // Additional security headers
+  hsts: {
+    maxAge: 31536000, // 1 year in seconds
+    includeSubDomains: true,
+    preload: true
+  },
+  frameguard: { action: 'deny' }, // Prevent clickjacking
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' }, // Restrict Adobe Flash and PDFs
+  expectCt: {
+    enforce: true,
+    maxAge: 86400 // 1 day in seconds
+  }
+}));
+
+// CSRF protection middleware
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production'
+  }
+});
+
+// Rate limiting middleware
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 requests per window
+  standardHeaders: true,
+  message: {
+    success: false,
+    message: 'Too many authentication attempts, please try again later.'
+  }
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute
+  standardHeaders: true,
+  message: {
+    success: false,
+    message: 'Too many requests, please try again later.'
+  }
+});
+
+// Parse JSON body
+app.use(express.json({ limit: '10mb' }));  // Increased limit for base64 images
+
+// Parse URL-encoded bodies
+app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files temporarily for the Deep Image API
 app.use('/temp-uploads', express.static(path.join(__dirname, 'uploads')));
@@ -100,11 +214,31 @@ const upload = multer({
   }
 });
 
-// Parse JSON body
-app.use(express.json({ limit: '10mb' }));  // Increased limit for base64 images
-
 // Serve static files from the current directory (for development)
 app.use(express.static(__dirname));
+
+// Register authentication routes
+app.use('/api/auth/login', authLimiter); // Apply stricter rate limiting to login
+app.use('/api/auth/register', authLimiter); // Apply stricter rate limiting to registration
+app.use('/api/auth/password-reset', authLimiter); // Apply stricter rate limiting to password reset
+
+// CSRF token endpoint - must be before protected routes
+app.get('/api/csrf-token', csrfProtection, (req, res) => {
+  res.json({ 
+    success: true,
+    csrfToken: req.csrfToken() 
+  });
+});
+
+// Apply CSRF protection to authentication and profile routes
+app.use('/api/auth', csrfProtection, authRoutes);
+app.use('/api/profile', csrfProtection, apiLimiter, profileRoutes);
+
+// Import authentication middleware if needed for protected routes
+const { attachUserData, requireAuth } = require('./server/middleware/auth');
+
+// Attach user data to request if authenticated
+app.use(attachUserData);
 
 // Serve index.html at the root route
 app.get('/', (req, res) => {
@@ -112,7 +246,7 @@ app.get('/', (req, res) => {
 });
 
 // Enhanced endpoint for image enhancement that proxies to Deep Image API
-app.post('/api/enhance-image', async (req, res) => {
+app.post('/api/enhance-image', csrfProtection, async (req, res) => {
   try {
     // Check if we have base64 image data
     if (req.body && req.body.image_base64) {
@@ -423,6 +557,14 @@ app.get('/api/test-grok', (req, res) => {
     message: 'Grok Vision API proxy endpoint is ready',
     instructions: 'POST to /api/generate-caption with mediaItems array containing image data'
   });
+});
+
+// Add PocketBase health check endpoint
+app.get('/api/health/pocketbase', async (req, res) => {
+  if (await pbService.isHealthy()) {
+    return res.status(200).json({ status: 'ok', message: 'PocketBase is healthy' });
+  }
+  return res.status(503).json({ status: 'error', message: 'PocketBase is not responding' });
 });
 
 // Error handling middleware

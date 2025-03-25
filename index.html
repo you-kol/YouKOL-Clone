@@ -36,19 +36,70 @@
     <!-- Environment variables are now defined inline in the script section below -->
 </head>
 <body class="bg-[#F9FAFB]">
-    <div id="app" x-data="appState()" x-init="await initApp()" class="flex flex-col items-center justify-between min-h-screen p-4 bg-[#F9FAFB] overflow-x-hidden">
+    <div id="app" 
+         x-data="appState()" 
+         x-init="await initApp()" 
+         class="flex flex-col items-center justify-between min-h-screen p-4 bg-[#F9FAFB] overflow-x-hidden">
         <!-- Header -->
         <div class="w-full flex flex-col items-center justify-center pt-16 pb-8">
-            <div class="flex items-center mb-3">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-primary to-[#F19A94] shadow-sm flex items-center justify-center mr-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+            <div class="flex items-center justify-between w-full max-w-lg">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-r from-primary to-[#F19A94] shadow-sm flex items-center justify-center mr-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <h1 class="logo-text text-2xl">Ima<span>KOL</span></h1>
                 </div>
-                <h1 class="logo-text text-2xl">Ima<span>KOL</span></h1>
+                
+                <!-- Auth buttons / User menu -->
+                <div x-show="!isAuthenticated" class="flex items-center space-x-2">
+                    <button 
+                        @click="showLoginModal = true" 
+                        class="btn btn-sm btn-ghost"
+                    >
+                        Login
+                    </button>
+                    <button 
+                        @click="showRegisterModal = true" 
+                        class="btn btn-sm btn-primary"
+                    >
+                        Sign up
+                    </button>
+                </div>
+                
+                <!-- User menu (when authenticated) -->
+                <div x-show="isAuthenticated" class="relative" x-data="{ userMenuOpen: false }">
+                    <button 
+                        @click="userMenuOpen = !userMenuOpen" 
+                        class="flex items-center space-x-2 focus:outline-none"
+                    >
+                        <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white">
+                            <span x-text="user?.username?.charAt(0) || user?.email?.charAt(0) || '?'"></span>
+                        </div>
+                        <span x-text="user?.username || user?.email?.split('@')[0]" class="hidden sm:inline text-sm font-medium"></span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    
+                    <!-- Dropdown menu -->
+                    <div 
+                        x-show="userMenuOpen" 
+                        @click.away="userMenuOpen = false"
+                        class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
+                    >
+                        <a href="#" @click.prevent="showProfileView = true; userMenuOpen = false; loadProfileForm()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            My Profile
+                        </a>
+                        <a href="#" @click.prevent="logout(); userMenuOpen = false" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            Logout
+                        </a>
+                    </div>
+                </div>
             </div>
-            <p class="text-gray-600 text-center">Capture and share your moments</p>
+            <p class="text-gray-600 text-center mt-3">Capture and share your moments</p>
         </div>
         
         <!-- Main Content -->
@@ -225,8 +276,9 @@
                     </div>
                     
                     <div class="flex space-x-3 justify-center mt-6">
+                        <!-- Find the Cancel button in preview state and update it -->
                         <button 
-                            @click="currentState = 'initial'; selectedFiles = []" 
+                            @click="resetAppState()" 
                             class="action-button secondary-button"
                         >
                             Cancel
@@ -341,8 +393,9 @@
                     </div>
                 </div>
                 
+                <!-- Find the New Post button in complete state and update it -->
                 <button 
-                    @click="currentState = 'initial'; selectedFiles = []; postMediaUrls = []" 
+                    @click="resetAppState()" 
                     class="action-button secondary-button"
                 >
                     New Post
@@ -553,6 +606,432 @@
                 </div>
             </div>
         </div>
+
+        <!-- Login Modal -->
+        <div x-show="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div @click.away="showLoginModal = false" class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Login</h2>
+                    <button @click="showLoginModal = false" class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <form @submit.prevent="login()">
+                    <div class="mb-4">
+                        <label for="identity" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input 
+                            type="email" 
+                            id="identity" 
+                            x-model="loginForm.identity" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            required
+                        >
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            x-model="loginForm.password" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            required
+                        >
+                    </div>
+                    
+                    <div x-show="authError" class="mb-4 p-2 bg-red-100 text-red-700 rounded-md text-sm" x-text="authError"></div>
+                    
+                    <button 
+                        type="submit" 
+                        class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                        :disabled="authLoading"
+                    >
+                        <span x-show="!authLoading">Login</span>
+                        <span x-show="authLoading">Logging in...</span>
+                    </button>
+                    
+                    <div class="mt-4 text-center text-sm">
+                        <p>Don't have an account? <a @click.prevent="showLoginModal = false; showRegisterModal = true" href="#" class="text-primary hover:underline">Sign up</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Registration Modal -->
+        <div x-show="showRegisterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div @click.away="showRegisterModal = false" class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Create an Account</h2>
+                    <button @click="showRegisterModal = false" class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <form @submit.prevent="register()">
+                    <div class="mb-4">
+                        <label for="reg-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input 
+                            type="email" 
+                            id="reg-email" 
+                            x-model="registerForm.email" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            required
+                        >
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="reg-username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                        <input 
+                            type="text" 
+                            id="reg-username" 
+                            x-model="registerForm.username" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            required
+                        >
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="reg-password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input 
+                            type="password" 
+                            id="reg-password" 
+                            x-model="registerForm.password" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            required
+                        >
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label for="reg-password-confirm" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                        <input 
+                            type="password" 
+                            id="reg-password-confirm" 
+                            x-model="registerForm.passwordConfirm" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            required
+                        >
+                    </div>
+                    
+                    <div x-show="authError" class="mb-4 p-2 bg-red-100 text-red-700 rounded-md text-sm" x-text="authError"></div>
+                    
+                    <button 
+                        type="submit" 
+                        class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                        :disabled="authLoading"
+                    >
+                        <span x-show="!authLoading">Create Account</span>
+                        <span x-show="authLoading">Creating Account...</span>
+                    </button>
+                    
+                    <div class="mt-4 text-center text-sm">
+                        <p>Already have an account? <a @click.prevent="showRegisterModal = false; showLoginModal = true" href="#" class="text-primary hover:underline">Login</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Profile View/Edit -->
+        <div x-show="showProfileView" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div @click.away="showProfileView = false" class="bg-white rounded-lg shadow-lg p-6 w-full max-w-3xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">My Profile</h2>
+                    <button @click="showProfileView = false" class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Tab Navigation -->
+                <div class="border-b mb-6">
+                    <nav class="flex space-x-4">
+                        <button 
+                            @click="activeProfileTab = 'general'" 
+                            :class="{'text-blue-500 border-b-2 border-blue-500': activeProfileTab === 'general'}"
+                            class="py-2 px-1">
+                            General
+                        </button>
+                        <button 
+                            @click="activeProfileTab = 'enhancements'" 
+                            :class="{'text-blue-500 border-b-2 border-blue-500': activeProfileTab === 'enhancements'}"
+                            class="py-2 px-1">
+                            Enhancement Preferences
+                        </button>
+                        <button 
+                            @click="activeProfileTab = 'notifications'" 
+                            :class="{'text-blue-500 border-b-2 border-blue-500': activeProfileTab === 'notifications'}"
+                            class="py-2 px-1">
+                            Notifications
+                        </button>
+                    </nav>
+                </div>
+                
+                <!-- General Tab Content -->
+                <div x-show="activeProfileTab === 'general'">
+                    <form @submit.prevent="updateProfile()">
+                        <div class="mb-4">
+                            <label for="display-name" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                            <input 
+                                type="text" 
+                                id="display-name" 
+                                x-model="profileForm.displayName" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            >
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="bio" class="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+                            <textarea 
+                                id="bio" 
+                                x-model="profileForm.bio" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                                rows="3"
+                            ></textarea>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Enhancements Tab Content -->
+                <div x-show="activeProfileTab === 'enhancements'">
+                    <h3 class="text-lg font-semibold mb-4">Image Enhancement Preferences</h3>
+                    <p class="text-gray-600 mb-4">Choose which enhancements you'd like applied to your images by default.</p>
+                    
+                    <div class="space-y-4">
+                        <template x-for="option in enhancementOptions" :key="option.id">
+                            <div class="border rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h4 class="font-medium text-gray-900" x-text="option.name"></h4>
+                                        <p class="text-sm text-gray-500" x-text="option.description"></p>
+                                    </div>
+                                    <label class="switch">
+                                        <input 
+                                            type="checkbox" 
+                                            x-bind:checked="userProfile && userProfile.preferences && userProfile.preferences.enhancements && userProfile.preferences.enhancements[option.id] !== undefined ? userProfile.preferences.enhancements[option.id] : false"
+                                            x-on:change="
+                                                if(!userProfile) userProfile = {};
+                                                if(!userProfile.preferences) userProfile.preferences = {};
+                                                if(!userProfile.preferences.enhancements) userProfile.preferences.enhancements = {};
+                                                userProfile.preferences.enhancements[option.id] = $event.target.checked;
+                                                console.log('Changed ' + option.id + ' to ' + $event.target.checked);
+                                            ">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                
+                <!-- Notifications Tab Content -->
+                <div x-show="activeProfileTab === 'notifications'">
+                    <h3 class="text-lg font-semibold mb-4">Notification Preferences</h3>
+                    <div class="mb-4">
+                        <div class="flex items-center mb-2">
+                            <input 
+                                type="checkbox" 
+                                id="dark-mode" 
+                                x-model="profileForm.preferences.darkMode" 
+                                class="mr-2"
+                            >
+                            <label for="dark-mode">Dark Mode</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="notifications" 
+                                x-model="profileForm.preferences.notifications" 
+                                class="mr-2"
+                            >
+                            <label for="notifications">Enable Notifications</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Form actions (sticky at bottom) -->
+                <div x-show="profileError" class="mb-4 p-2 bg-red-100 text-red-700 rounded-md text-sm" x-text="profileError"></div>
+                
+                <div class="mt-6 pt-4 border-t flex justify-end">
+                    <button 
+                        @click="showProfileView = false" 
+                        class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 mr-2">
+                        Cancel
+                    </button>
+                    <button 
+                        @click="updateProfile()" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        :disabled="profileLoading">
+                        <span x-show="!profileLoading">Save Changes</span>
+                        <span x-show="profileLoading">Saving...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Success Toast Notification -->
+        <div 
+            x-show="showProfileSuccessMessage" 
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 transform translate-y-2"
+            x-transition:enter-end="opacity-100 transform translate-y-0"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 transform translate-y-0"
+            x-transition:leave-end="opacity-0 transform translate-y-2"
+            class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Profile updated successfully!</span>
+        </div>
+
+        <!-- Onboarding Modal -->
+        <div x-show="showOnboarding" class="fixed inset-0 bg-white z-50 flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h2 class="text-xl font-bold">Welcome to ImaKOL!</h2>
+                <button @click="skipOnboarding()" class="text-gray-500 hover:text-gray-700">
+                    Skip
+                </button>
+            </div>
+            
+            <div class="flex-grow p-6 overflow-y-auto">
+                <!-- Step 1 -->
+                <div x-show="onboardingStep === 1" class="flex flex-col items-center">
+                    <div class="w-24 h-24 rounded-full bg-primary-light flex items-center justify-center mb-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Welcome aboard!</h3>
+                    <p class="text-center text-gray-600 mb-6">Let's set up your profile so you can make the most of ImaKOL.</p>
+                    
+                    <div class="w-full max-w-md space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Choose a username</label>
+                            <input 
+                                type="text" 
+                                x-model="onboardingData.displayName" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                                placeholder="Your username"
+                            >
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 2 -->
+                <div x-show="onboardingStep === 2" class="flex flex-col items-center">
+                    <div class="w-24 h-24 rounded-full bg-primary-light flex items-center justify-center mb-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Set Your Preferences</h3>
+                    <p class="text-center text-gray-600 mb-6">Customize your experience with ImaKOL.</p>
+                    
+                    <div class="w-full max-w-md space-y-4">
+                        <div class="flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="onboarding-dark-mode" 
+                                x-model="onboardingData.preferences.darkMode" 
+                                class="mr-2"
+                            >
+                            <label for="onboarding-dark-mode">Enable Dark Mode</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input 
+                                type="checkbox" 
+                                id="onboarding-notifications" 
+                                x-model="onboardingData.preferences.notifications" 
+                                class="mr-2"
+                            >
+                            <label for="onboarding-notifications">Enable Notifications</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step 3 -->
+                <div x-show="onboardingStep === 3" class="flex flex-col items-center">
+                    <div class="w-24 h-24 rounded-full bg-primary-light flex items-center justify-center mb-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">Customize Your Enhancements</h3>
+                    <p class="text-center text-gray-600 mb-6">Choose which enhancements you'd like applied to your images.</p>
+                    
+                    <div class="w-full max-w-md space-y-4">
+                        <template x-for="option in enhancementOptions" :key="option.id">
+                            <div class="border rounded-lg p-3 shadow-sm">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h4 class="font-medium text-gray-900" x-text="option.name"></h4>
+                                        <p class="text-sm text-gray-500" x-text="option.description"></p>
+                                    </div>
+                                    <label class="switch">
+                                        <input 
+                                            type="checkbox" 
+                                            x-bind:checked="onboardingData && onboardingData.preferences && onboardingData.preferences.enhancements && onboardingData.preferences.enhancements[option.id] ? true : option.default"
+                                            x-on:change="
+                                                if(!onboardingData) onboardingData = {steps: ['step-1'], fullName: '', preferences: {}};
+                                                if(!onboardingData.preferences) onboardingData.preferences = {};
+                                                if(!onboardingData.preferences.enhancements) onboardingData.preferences.enhancements = {};
+                                                onboardingData.preferences.enhancements[option.id] = $event.target.checked;
+                                            ">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+                
+                <!-- Step 4 (moved from step 3) -->
+                <div x-show="onboardingStep === 4" class="flex flex-col items-center">
+                    <div class="w-24 h-24 rounded-full bg-primary-light flex items-center justify-center mb-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2">All Set!</h3>
+                    <p class="text-center text-gray-600 mb-6">You're all set up and ready to go. Start capturing and sharing your moments!</p>
+                </div>
+            </div>
+            
+            <div class="border-t p-4 flex justify-between">
+                <button 
+                    @click="previousOnboardingStep()" 
+                    class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    x-show="onboardingStep > 1"
+                >
+                    Previous
+                </button>
+                <div x-show="onboardingStep === 1"></div>
+                
+                <div class="flex space-x-2">
+                    <button
+                        x-show="onboardingStep === 3"
+                        @click="skipEnhancementPreferences()"
+                        class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    >
+                        Skip
+                    </button>
+                    
+                    <button 
+                        @click="nextOnboardingStep()" 
+                        class="px-4 py-2 bg-primary border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                    >
+                        <span x-show="onboardingStep < 4">Next</span>
+                        <span x-show="onboardingStep === 4">Finish</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -568,21 +1047,15 @@
         
         console.log('Environment variables loaded successfully');
         
-        // Mobile viewport height fix
+        // Set mobile viewport height for better mobile experience
         function setMobileViewportHeight() {
-            // First we get the viewport height and multiply it by 1% to get a value for a vh unit
+            // Get the viewport height
             let vh = window.innerHeight * 0.01;
-            // Then we set the value in the --vh custom property to the root of the document
+            // Set the value as a CSS custom property
             document.documentElement.style.setProperty('--vh', `${vh}px`);
-            
-            // Apply the height to the app container
-            const appElement = document.getElementById('app');
-            if (appElement) {
-                appElement.style.minHeight = `calc(100 * var(--vh))`;
-            }
         }
         
-        // Initialize viewport height
+        // Initial call
         setMobileViewportHeight();
         
         // Update on resize
@@ -608,7 +1081,51 @@
         }
         
         function appState() {
+            // Create enhancement options first
+            const enhancementOptions = [
+                { id: 'whiter_teeth', name: 'Whiter Teeth', description: 'Brighten your smile', default: true },
+                { id: 'paler_skin', name: 'Paler Skin', description: 'Lighten skin tone', default: false },
+                { id: 'bigger_eyes', name: 'Bigger Eyes', description: 'Enhance eye appearance', default: true },
+                { id: 'slimmer_face', name: 'Slimmer Face', description: 'Subtle face slimming', default: false },
+                { id: 'remove_blemishes', name: 'Remove Blemishes', description: 'Clear skin imperfections', default: true },
+                { id: 'sharpen', name: 'Sharpen', description: 'Enhance image clarity', default: true }
+            ];
+            
+            // Pre-initialize enhancement preferences
+            const defaultEnhancements = {};
+            enhancementOptions.forEach(option => {
+                defaultEnhancements[option.id] = option.default;
+            });
+            
             return {
+                // Global UI state
+                activeProfileTab: 'general',
+                
+                // Enhancement options
+                enhancementOptions,
+                
+                // User profile with default values
+                userProfile: {
+                    displayName: '',
+                    bio: '',
+                    preferences: {
+                        theme: 'light',
+                        notifications: true,
+                        enhancements: { ...defaultEnhancements }
+                    }
+                },
+                
+                // Onboarding with default values
+                onboardingData: {
+                    steps: ['step-1'],
+                    fullName: '',
+                    preferences: {
+                        theme: 'light',
+                        notifications: true,
+                        enhancements: { ...defaultEnhancements }
+                    }
+                },
+                
                 currentState: 'initial', // initial, preview, processing, complete
                 selectedFiles: [],
                 postMediaUrls: [],
@@ -622,6 +1139,47 @@
                 recordedChunks: [],
                 capturedImage: null,
                 generatedCaption: '',
+                
+                // Authentication state
+                isAuthenticated: false,
+                user: null,
+                authError: null,
+                authLoading: false,
+                profileError: null,
+                profileLoading: false,
+                
+                // Auth modals
+                showLoginModal: false,
+                showRegisterModal: false,
+                showProfileView: false,
+                
+                // Form data
+                loginForm: {
+                    identity: '',
+                    password: ''
+                },
+                registerForm: {
+                    email: '',
+                    username: '',
+                    password: '',
+                    passwordConfirm: ''
+                },
+                profileForm: {
+                    displayName: '',
+                    bio: '',
+                    preferences: {
+                        theme: 'light',
+                        notifications: true,
+                        enhancements: { ...defaultEnhancements }
+                    }
+                },
+                
+                // Onboarding state
+                showOnboarding: false,
+                onboardingStep: 1,
+                
+                // Profile state
+                showProfileSuccessMessage: false,
                 
                 // Fullscreen view related state
                 isFullscreenViewOpen: false,
@@ -651,6 +1209,644 @@
                 // Comparison mode for before/after
                 isComparisonModeActive: false,
                 
+                // Security enhancements
+                csrfToken: '',
+                
+                // Initialize enhancement preferences
+                initEnhancementPreferences() {
+                    console.log('Initializing enhancement preferences...');
+                    
+                    try {
+                        // Ensure we have enhancementOptions defined
+                        if (!this.enhancementOptions || !Array.isArray(this.enhancementOptions)) {
+                            console.warn('Enhancement options not defined, using defaults');
+                            this.enhancementOptions = [
+                                { id: 'whiter_teeth', name: 'Whiter Teeth', description: 'Brighten your smile', default: true },
+                                { id: 'paler_skin', name: 'Paler Skin', description: 'Lighten skin tone', default: false },
+                                { id: 'bigger_eyes', name: 'Bigger Eyes', description: 'Enhance eye appearance', default: true },
+                                { id: 'slimmer_face', name: 'Slimmer Face', description: 'Subtle face slimming', default: false },
+                                { id: 'remove_blemishes', name: 'Remove Blemishes', description: 'Clear skin imperfections', default: true },
+                                { id: 'sharpen', name: 'Sharpen', description: 'Enhance image clarity', default: true }
+                            ];
+                        }
+                        
+                        // Initialize userProfile enhancements
+                        if (!this.userProfile) {
+                            this.userProfile = {
+                                displayName: '',
+                                bio: '',
+                                preferences: {
+                                    theme: 'light',
+                                    notifications: true,
+                                    enhancements: { ...defaultEnhancements }
+                                }
+                            };
+                        } else if (!this.userProfile.preferences) {
+                            this.userProfile.preferences = {
+                                theme: 'light',
+                                notifications: true,
+                                enhancements: { ...defaultEnhancements }
+                            };
+                        } else if (!this.userProfile.preferences.enhancements) {
+                            this.userProfile.preferences.enhancements = { ...defaultEnhancements };
+                        }
+
+                        // Initialize onboardingData enhancements
+                        if (!this.onboardingData) {
+                            this.onboardingData = {
+                                steps: ['step-1'],
+                                fullName: '',
+                                preferences: {
+                                    theme: 'light',
+                                    notifications: true,
+                                    enhancements: { ...defaultEnhancements }
+                                }
+                            };
+                        } else if (!this.onboardingData.preferences) {
+                            this.onboardingData.preferences = {
+                                theme: 'light',
+                                notifications: true,
+                                enhancements: { ...defaultEnhancements }
+                            };
+                        } else if (!this.onboardingData.preferences.enhancements) {
+                            this.onboardingData.preferences.enhancements = { ...defaultEnhancements };
+                        }
+                        
+                        // Set default values for all enhancement options
+                        for (let option of this.enhancementOptions) {
+                            // Set userProfile defaults
+                            if (this.userProfile.preferences.enhancements[option.id] === undefined) {
+                                this.userProfile.preferences.enhancements[option.id] = option.default;
+                            }
+                            
+                            // Set onboardingData defaults
+                            if (this.onboardingData.preferences.enhancements[option.id] === undefined) {
+                                this.onboardingData.preferences.enhancements[option.id] = option.default;
+                            }
+                        }
+                        
+                        console.log('Enhancement preferences initialized');
+                    } catch (error) {
+                        console.error('Error initializing enhancement preferences:', error);
+                    }
+                },
+                
+                // Skip enhancement preferences in onboarding
+                skipEnhancementPreferences() {
+                    try {
+                        // Ensure preferences object exists
+                        if (!this.onboardingData.preferences) {
+                            this.onboardingData.preferences = {};
+                        }
+                        
+                        if (!this.onboardingData.preferences.enhancements) {
+                            this.onboardingData.preferences.enhancements = {};
+                        }
+                        
+                        // Set all to defaults
+                        for (let option of this.enhancementOptions) {
+                            this.onboardingData.preferences.enhancements[option.id] = option.default;
+                        }
+                        
+                        this.nextOnboardingStep();
+                    } catch (error) {
+                        console.error('Error skipping enhancement preferences:', error);
+                        this.nextOnboardingStep(); // Still try to continue
+                    }
+                },
+                
+                // Get enhancement example image (text only mode, return empty string)
+                getEnhancementExampleImage(enhancementId) {
+                    return ''; // Return empty string for text-only mode
+                },
+                
+                // Initialize the app
+                async init() {
+                    console.log('Initializing app...');
+                    try {
+                        await this.checkAuthStatus();
+                        
+                        // Initialize enhancement preferences regardless of auth status
+                        this.initEnhancementPreferences();
+                    } catch (error) {
+                        console.error('Error initializing app:', error);
+                        // Still initialize enhancement preferences even if auth check fails
+                        this.initEnhancementPreferences();
+                    }
+                },
+                
+                // Fetch CSRF token from the server
+                async fetchCsrfToken() {
+                    try {
+                        console.log('Fetching CSRF token...');
+                        const response = await fetch('/api/csrf-token', {
+                            method: 'GET',
+                            credentials: 'include',
+                            headers: {
+                                'Accept': 'application/json'
+                            }
+                        });
+                        
+                        if (!response.ok) {
+                            console.error('Failed to fetch CSRF token:', response.status, response.statusText);
+                            return;
+                        }
+                        
+                        const data = await response.json();
+                        if (data.success) {
+                            console.log('CSRF token fetched successfully');
+                            this.csrfToken = data.csrfToken;
+                            
+                            // Store in localStorage for persistence across page loads
+                            localStorage.setItem('csrfToken', data.csrfToken);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching CSRF token:', error);
+                        
+                        // Try to get token from localStorage as fallback
+                        const storedToken = localStorage.getItem('csrfToken');
+                        if (storedToken) {
+                            this.csrfToken = storedToken;
+                        }
+                    }
+                },
+                
+                // Add CSRF token to headers
+                getRequestHeaders(contentType = 'application/json') {
+                    const headers = {
+                        'Content-Type': contentType
+                    };
+                    
+                    if (this.csrfToken) {
+                        headers['X-CSRF-Token'] = this.csrfToken;
+                    }
+                    
+                    return headers;
+                },
+                
+                // Authentication methods
+                async checkAuthStatus() {
+                    try {
+                        console.log('Checking auth status...');
+                        
+                        // Always ensure userProfile exists
+                        if (!this.userProfile) {
+                            console.log('Initializing userProfile in checkAuthStatus');
+                            this.userProfile = {
+                                displayName: '',
+                                bio: '',
+                                preferences: {
+                                    darkMode: false,
+                                    enableNotifications: true
+                                }
+                            };
+                        }
+                        
+                        const response = await fetch('/api/auth/status', {
+                            method: 'GET',
+                            headers: this.getRequestHeaders(),
+                            credentials: 'include'
+                        });
+                        
+                        if (!response.ok) {
+                            console.log('Auth status check failed with status:', response.status);
+                            this.isAuthenticated = false;
+                            return;
+                        }
+                        
+                        const data = await response.json();
+                        console.log('Auth status response:', data);
+                        
+                        this.isAuthenticated = data.authenticated;
+                        if (data.authenticated && data.user) {
+                            this.user = data.user;
+                            
+                            // Set userProfile data from user object
+                            this.userProfile.displayName = data.user.displayName || '';
+                            
+                            console.log('User authenticated, userProfile updated:', this.userProfile);
+                            
+                            // Check if onboarding is needed
+                            if (!data.user.isOnboarded) {
+                                this.showOnboardingModal = true;
+                                console.log('Onboarding needed, showing modal');
+                            }
+                        } else {
+                            console.log('User not authenticated');
+                        }
+                    } catch (error) {
+                        console.error('Auth check failed:', error);
+                        this.isAuthenticated = false;
+                    }
+                },
+                
+                async login() {
+                    this.authError = '';
+                    
+                    try {
+                        if (!this.loginForm.identity || !this.loginForm.password) {
+                            this.authError = 'Please fill in all fields';
+                            return;
+                        }
+                        
+                        // Make sure we have a CSRF token
+                        if (!this.csrfToken) {
+                            await this.fetchCsrfToken();
+                            if (!this.csrfToken) {
+                                this.authError = 'Could not secure the request. Please refresh the page and try again.';
+                                return;
+                            }
+                        }
+                        
+                        const response = await fetch('/api/auth/login', {
+                            method: 'POST',
+                            headers: this.getRequestHeaders(),
+                            body: JSON.stringify({
+                                identity: this.loginForm.identity,
+                                password: this.loginForm.password
+                            }),
+                            credentials: 'include'
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            this.authError = data.message || 'Login failed';
+                            if (data.errors && data.errors.length > 0) {
+                                this.authError = data.errors.map(err => err.msg || err.message).join(', ');
+                            }
+                            return;
+                        }
+                        
+                        // Successful login
+                        this.isAuthenticated = true;
+                        this.user = data.user;
+                        this.showLoginModal = false;
+                        this.loginForm.identity = '';
+                        this.loginForm.password = '';
+                        
+                        // Reset CSRF token after login
+                        await this.fetchCsrfToken();
+                        
+                        // Show onboarding if needed
+                        if (data.user && !data.user.isOnboarded) {
+                            this.showOnboardingModal = true;
+                        }
+                    } catch (error) {
+                        console.error('Login error:', error);
+                        this.authError = 'An unexpected error occurred. Please try again.';
+                    }
+                },
+                
+                async register() {
+                    this.authError = '';
+                    
+                    try {
+                        // Validate inputs
+                        if (!this.registerForm.email || !this.registerForm.username || 
+                            !this.registerForm.password || !this.registerForm.passwordConfirm) {
+                            this.authError = 'Please fill in all fields';
+                            return;
+                        }
+                        
+                        if (this.registerForm.password !== this.registerForm.passwordConfirm) {
+                            this.authError = 'Passwords do not match';
+                            return;
+                        }
+                        
+                        // Password strength validation
+                        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/;
+                        if (!passwordRegex.test(this.registerForm.password)) {
+                            this.authError = 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character';
+                            return;
+                        }
+                        
+                        // Make sure we have a CSRF token
+                        if (!this.csrfToken) {
+                            await this.fetchCsrfToken();
+                            if (!this.csrfToken) {
+                                this.authError = 'Could not secure the request. Please refresh the page and try again.';
+                                return;
+                            }
+                        }
+                        
+                        const response = await fetch('/api/auth/register', {
+                            method: 'POST',
+                            headers: this.getRequestHeaders(),
+                            body: JSON.stringify({
+                                email: this.registerForm.email,
+                                username: this.registerForm.username,
+                                password: this.registerForm.password,
+                                passwordConfirm: this.registerForm.passwordConfirm
+                            }),
+                            credentials: 'include'
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            this.authError = data.message || 'Registration failed';
+                            if (data.errors && data.errors.length > 0) {
+                                this.authError = data.errors.map(err => err.msg || err.message).join(', ');
+                            }
+                            return;
+                        }
+                        
+                        // Successful registration
+                        this.showRegisterModal = false;
+                        this.showLoginModal = true; // Prompt to login
+                        this.registerForm.email = '';
+                        this.registerForm.username = '';
+                        this.registerForm.password = '';
+                        this.registerForm.passwordConfirm = '';
+                        
+                        // Success message in login modal
+                        this.authSuccess = 'Registration successful! Please login.';
+                        
+                        // Reset CSRF token after registration
+                        await this.fetchCsrfToken();
+                    } catch (error) {
+                        console.error('Registration error:', error);
+                        this.authError = 'An unexpected error occurred. Please try again.';
+                    }
+                },
+                
+                async logout() {
+                    try {
+                        // Make sure we have a CSRF token
+                        if (!this.csrfToken) {
+                            await this.fetchCsrfToken();
+                        }
+                        
+                        const response = await fetch('/api/auth/logout', {
+                            method: 'POST',
+                            headers: this.getRequestHeaders(),
+                            credentials: 'include'
+                        });
+                        
+                        if (!response.ok) {
+                            console.error('Logout failed');
+                            return;
+                        }
+                        
+                        // Reset state
+                        this.isAuthenticated = false;
+                        this.user = null;
+                        
+                        // Reset CSRF token after logout
+                        await this.fetchCsrfToken();
+                    } catch (error) {
+                        console.error('Logout error:', error);
+                    }
+                },
+                
+                // Profile methods
+                async loadProfileForm() {
+                    if (!this.isAuthenticated) return;
+                    
+                    try {
+                        const response = await fetch('/api/profile', {
+                            headers: this.getRequestHeaders(),
+                            credentials: 'include'
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success && data.profile) {
+                            // Set up default preferences structure
+                            const preferences = data.profile.preferences || {};
+                            if (!preferences.enhancements) {
+                                preferences.enhancements = {};
+                            }
+                            
+                            // Initialize all enhancement options to false if not already set
+                            this.enhancementOptions.forEach(option => {
+                                if (preferences.enhancements[option.id] === undefined) {
+                                    preferences.enhancements[option.id] = false; // Default to false for all unset preferences
+                                }
+                            });
+
+                            this.profileForm = {
+                                displayName: data.profile.username || '',
+                                bio: data.profile.bio || '',
+                                preferences: preferences
+                            };
+                            
+                            // Also update userProfile to keep both objects in sync
+                            this.userProfile.displayName = data.profile.username || '';
+                            this.userProfile.bio = data.profile.bio || '';
+                            this.userProfile.preferences = {...preferences}; // Use copy to avoid reference issues
+                            
+                            console.log('Profile loaded with preferences:', JSON.stringify(this.userProfile.preferences));
+                        }
+                    } catch (error) {
+                        console.error('Failed to load profile:', error);
+                    }
+                },
+                
+                // Update profile method
+                async updateProfile() {
+                    try {
+                        this.profileError = null;
+                        this.isUpdatingProfile = true;
+                        
+                        // Copy values from profileForm to userProfile for API submission
+                        this.userProfile.displayName = this.profileForm.displayName;
+                        this.userProfile.bio = this.profileForm.bio;
+                        
+                        console.log('Updating profile with:', {
+                            displayName: this.userProfile.displayName,
+                            bio: this.userProfile.bio
+                        });
+                        
+                        // Make sure all required preferences are set
+                        if (!this.userProfile.preferences) {
+                            this.userProfile.preferences = {};
+                        }
+                        
+                        // Ensure enhancement preferences exist and are properly initialized
+                        if (!this.userProfile.preferences.enhancements) {
+                            this.userProfile.preferences.enhancements = {};
+                        }
+                        
+                        // Make sure all enhancement options have a boolean value (default to false if not set)
+                        this.enhancementOptions.forEach(option => {
+                            if (this.userProfile.preferences.enhancements[option.id] === undefined) {
+                                this.userProfile.preferences.enhancements[option.id] = false;
+                            }
+                        });
+                        
+                        console.log('Preferences being saved:', JSON.stringify(this.userProfile.preferences));
+                        
+                        // Make sure we have a CSRF token
+                        if (!this.csrfToken) {
+                            await this.fetchCsrfToken();
+                            if (!this.csrfToken) {
+                                throw new Error('Could not secure the request. Please refresh the page and try again.');
+                            }
+                        }
+                        
+                        const response = await fetch('/api/profile', {
+                            method: 'PUT',
+                            headers: this.getRequestHeaders(),
+                            body: JSON.stringify({
+                                displayName: this.userProfile.displayName,
+                                bio: this.userProfile.bio,
+                                preferences: this.userProfile.preferences
+                            }),
+                            credentials: 'include'
+                        });
+                        
+                        if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.message || 'Failed to update profile');
+                        }
+                        
+                        const data = await response.json();
+                        
+                        // Update local user data 
+                        this.user = {
+                            ...this.user,
+                            username: data.profile.username,
+                            profile_id: data.profile.id
+                        };
+                        
+                        // Update profile form with the returned data to ensure consistency
+                        this.profileForm = {
+                            displayName: data.profile.displayName || data.profile.display_name || '',
+                            bio: data.profile.bio || '',
+                            preferences: data.profile.preferences || {}
+                        };
+                        
+                        // Update userProfile as well
+                        this.userProfile.displayName = data.profile.displayName || data.profile.display_name || '';
+                        this.userProfile.bio = data.profile.bio || '';
+                        this.userProfile.preferences = data.profile.preferences || {};
+                        
+                        // Make sure preferences have enhancements initialized
+                        if (!this.userProfile.preferences.enhancements) {
+                            this.userProfile.preferences.enhancements = {};
+                            this.enhancementOptions.forEach(option => {
+                                this.userProfile.preferences.enhancements[option.id] = false;
+                            });
+                        }
+                        
+                        console.log('Profile successfully updated with preferences:', JSON.stringify(this.userProfile.preferences));
+                        
+                        // Show success message toast notification
+                        // This will display a green success toast at the bottom right of the screen
+                        // The toast will automatically fade out after 2 seconds
+                        this.showProfileSuccessMessage = true;
+                        setTimeout(() => {
+                            this.showProfileSuccessMessage = false;
+                            // No longer automatically closing the profile modal
+                        }, 2000);
+                        
+                        // this.showProfileModal = false;  // Remove this line as it's redundant
+                    } catch (error) {
+                        console.error('Update profile error:', error);
+                        this.profileError = error.message;
+                    } finally {
+                        this.isUpdatingProfile = false;
+                    }
+                },
+                
+                // Onboarding methods
+                nextOnboardingStep() {
+                    if (this.onboardingStep < 4) {
+                        this.onboardingStep++;
+                        this.onboardingData.steps.push(`step-${this.onboardingStep}`);
+                    } else {
+                        // If we're at the last step, complete onboarding
+                        this.completeOnboarding();
+                    }
+                },
+                
+                previousOnboardingStep() {
+                    if (this.onboardingStep > 1) {
+                        this.onboardingStep--;
+                    }
+                },
+                
+                // Complete onboarding
+                async completeOnboarding() {
+                    try {
+                        console.log('Starting onboarding completion');
+                        
+                        // Always ensure userProfile exists
+                        if (!this.userProfile) {
+                            console.log('Initializing userProfile in completeOnboarding');
+                            this.userProfile = {
+                                displayName: this.user ? (this.user.displayName || this.user.username || '') : '',
+                                bio: '',
+                                preferences: {
+                                    theme: 'light',
+                                    notifications: true,
+                                    enhancements: { ...defaultEnhancements }
+                                }
+                            };
+                            
+                            // Initialize enhancement preferences with defaults
+                            this.enhancementOptions.forEach(option => {
+                                this.userProfile.preferences.enhancements[option.id] = option.default;
+                            });
+                        }
+                        
+                        // Make sure we have a CSRF token
+                        if (!this.csrfToken) {
+                            await this.fetchCsrfToken();
+                        }
+                        
+                        // Get enhancement preferences from onboarding data if available
+                        if (this.onboardingData && this.onboardingData.preferences && this.onboardingData.preferences.enhancements) {
+                            this.userProfile.preferences.enhancements = { ...this.onboardingData.preferences.enhancements };
+                        }
+                        
+                        const payload = {
+                            display_name: this.userProfile.displayName || (this.user ? this.user.displayName || this.user.username || '' : ''),
+                            preferences: this.userProfile.preferences || {},
+                            isOnboarded: true
+                        };
+                        
+                        console.log('Completing onboarding with payload:', payload);
+                        
+                        const response = await fetch('/api/profile', {
+                            method: 'PUT',
+                            headers: this.getRequestHeaders(),
+                            body: JSON.stringify(payload),
+                            credentials: 'include'
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            console.error('Onboarding completion failed:', data.message);
+                            return;
+                        }
+                        
+                        console.log('Onboarding completed successfully');
+                        
+                        // Update user data
+                        if (this.user) {
+                            this.user.isOnboarded = true;
+                        }
+                        
+                        this.showOnboardingModal = false;
+                        
+                        // Reset CSRF token after onboarding
+                        await this.fetchCsrfToken();
+                    } catch (error) {
+                        console.error('Onboarding error:', error);
+                    }
+                },
+                
+                skipOnboarding() {
+                    // Mark onboarding as completed without going through all steps
+                    this.onboardingData.steps = ['skipped'];
+                    this.completeOnboarding();
+                },
+                
+                // Existing methods
                 async captureMedia() {
                     try {
                         // Request camera permissions
@@ -1828,13 +3024,19 @@
                     
                     console.log(`Sending image data for enhancement (${base64Image.length} chars)`);
                     
-                    // Make the API call
+                    // Make sure we have a CSRF token
+                    if (!this.csrfToken) {
+                        return this.fetchCsrfToken().then(() => {
+                            return this.callDeepImageAPI(base64Image);
+                        });
+                    }
+                    
+                    // Make the API call with CSRF token
                     return fetch(apiEndpoint, {
                         method: 'POST',
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(payload)
+                        headers: this.getRequestHeaders(),
+                        body: JSON.stringify(payload),
+                        credentials: 'include'
                     })
                     .then(response => {
                         if (!response.ok) {
@@ -2216,6 +3418,35 @@
                     
                     // Note: Currently enhancing items will still complete
                     // We could add abort controllers if needed for true cancellation
+                },
+                
+                // Add this function to the app methods (place before the // Profile methods comment)
+                resetAppState() {
+                    // Reset main app state
+                    this.currentState = 'initial';
+                    this.selectedFiles = [];
+                    this.postMediaUrls = [];
+                    
+                    // Reset all enhancement-related state
+                    this.hasEnhanced = {};
+                    this.originalFiles = {};
+                    this.enhancementProgress = {};
+                    this.enhancementErrors = {};
+                    this.currentlyEnhancing = {};
+                    this.batchEnhancementActive = false;
+                    this.enhancementQueue = [];
+                    
+                    // Reset enhancement flags
+                    this.isEnhancing = false;
+                    this.enhancingIndex = null;
+                    
+                    // Reset fullscreen view state
+                    this.isFullscreenViewOpen = false;
+                    this.currentFullscreenIndex = null;
+                    this.currentFullscreenFile = null;
+                    this.isComparisonModeActive = false;
+                    
+                    console.log('App state has been reset');
                 },
             }
         }
