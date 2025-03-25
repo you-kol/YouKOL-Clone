@@ -1,5 +1,5 @@
 const logger = require('../../logger');
-const pbService = require('../services/pocketbase');
+const { pocketBaseService: pbService } = require('../services/pocketbase');
 
 // Security enhancement: Add login attempt tracking
 const loginAttempts = new Map();

@@ -1,19 +1,122 @@
 // server/services/pocketbase.js
 const PocketBase = require('pocketbase/cjs');
+const dotenv = require('dotenv');
 const logger = require('../../logger');
+
+dotenv.config();
+
+// Set default values if env variables are not set
+const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
+const pbUser = process.env.POCKETBASE_USER || '';
+const pbPass = process.env.POCKETBASE_PASS || '';
+
+// Create a PocketBase client and configure connection
+const pb = new PocketBase(pbUrl);
+
+// Configure timeout (handling both v0.21.1 and v0.26.3 methods)
+const configureTimeout = (timeout = 30000) => {
+  try {
+    // v0.26.3+ method
+    if (typeof pb.http?.setTimeout === 'function') {
+      pb.http.setTimeout(timeout);
+    } 
+    // v0.21.1 method (fallback)
+    else if (pb.axios?.defaults) {
+      pb.axios.defaults.timeout = timeout;
+    }
+  } catch (error) {
+    console.error('Error configuring timeout:', error);
+  }
+};
+
+// Configure timeout
+configureTimeout();
+
+// Set auto cancelation behavior
+pb.autoCancellation(false);
+
+// Helper function to authenticate as admin/superuser
+const authenticateAsAdmin = async () => {
+  if (!pbUser || !pbPass) {
+    throw new Error('PocketBase admin credentials are not set in the .env file');
+  }
+
+  try {
+    // Try authenticating as a superuser (v0.26.3+)
+    await pb.collection('_superusers').authWithPassword(pbUser, pbPass);
+    console.log('Authenticated as superuser (v0.26.3+)');
+    return;
+  } catch (superuserError) {
+    console.log('Failed to authenticate as superuser, trying legacy admin method...');
+    
+    try {
+      // Try legacy admin auth (v0.21.1)
+      await pb.admins.authWithPassword(pbUser, pbPass);
+      console.log('Authenticated as admin (v0.21.1)');
+      console.warn('Using legacy admin authentication. Please migrate to superuser (_superusers collection).');
+      return;
+    } catch (adminError) {
+      console.error('Failed to authenticate as admin:', adminError);
+      
+      // Try to provide more helpful error message
+      const errorMessage = superuserError.message || adminError.message || 'Unknown error';
+      
+      if (errorMessage.includes('404') || errorMessage.includes('not found') || superuserError.status === 404) {
+        throw new Error('PocketBase _superusers collection not found. You may be using a newer version of PocketBase without proper setup. Please create a superuser account via the admin UI.');
+      } else if (errorMessage.includes('401') || errorMessage.includes('403') || superuserError.status === 401 || adminError.status === 403) {
+        throw new Error('Invalid admin/superuser credentials. Please check your POCKETBASE_USER and POCKETBASE_PASS in the .env file.');
+      } else {
+        throw new Error(`Failed to authenticate: ${errorMessage}`);
+      }
+    }
+  }
+};
+
+// Helper function to create a superuser (for v0.26.3+)
+const createSuperUser = async (email, password, passwordConfirm) => {
+  try {
+    // Check if we need to authenticate first
+    if (!pb.authStore.isValid) {
+      // Try to authenticate first with existing credentials
+      try {
+        await authenticateAsAdmin();
+      } catch (error) {
+        // If authentication fails but we're creating the first superuser, proceed
+        console.log('Proceeding with superuser creation without authentication...');
+      }
+    }
+    
+    // For v0.26.3+, create a superuser
+    const data = {
+      email,
+      password,
+      passwordConfirm
+    };
+    
+    const record = await pb.collection('_superusers').create(data);
+    console.log('Superuser created successfully:', record.id);
+    return record;
+  } catch (error) {
+    console.error('Failed to create superuser:', error);
+    throw error;
+  }
+};
+
+// Helper function to check if the _superusers collection exists (v0.26.3+)
+const checkSuperUsersCollection = async () => {
+  try {
+    const collections = await pb.collections.getFullList();
+    return collections.some(collection => collection.name === '_superusers');
+  } catch (error) {
+    console.error('Error checking for _superusers collection:', error);
+    return false;
+  }
+};
 
 class PocketBaseService {
   constructor() {
-    this.pb = new PocketBase(process.env.POCKETBASE_URL || 'http://127.0.0.1:8090');
+    this.pb = pb;
     this.isConnected = false;
-    
-    // Set request timeout
-    if (process.env.POCKETBASE_TIMEOUT) {
-      this.pb.autoCancellation(false);
-      const timeout = parseInt(process.env.POCKETBASE_TIMEOUT);
-      this.pb.axios.defaults.timeout = timeout;
-      logger.info(`PocketBase timeout set to ${timeout}ms`);
-    }
     
     // Initialize connection
     this.init();
@@ -26,9 +129,10 @@ class PocketBaseService {
       this.isConnected = true;
       logger.info('✅ PocketBase connection successful');
       
-      // Admin authentication if credentials are provided
-      if (process.env.POCKETBASE_ADMIN_EMAIL && process.env.POCKETBASE_ADMIN_PASSWORD) {
-        await this.adminAuth();
+      // Try authentication if credentials are provided
+      if ((process.env.POCKETBASE_ADMIN_EMAIL && process.env.POCKETBASE_ADMIN_PASSWORD) ||
+          (process.env.POCKETBASE_SUPERUSER_EMAIL && process.env.POCKETBASE_SUPERUSER_PASSWORD)) {
+        await this.authenticate();
       }
     } catch (error) {
       logger.error('❌ Failed to connect to PocketBase', { error: error.message });
@@ -40,16 +144,69 @@ class PocketBaseService {
     }
   }
   
-  async adminAuth() {
+  async authenticate() {
+    let isAuthenticated = false;
+    
+    // In v0.26.3, admins are now in the _superusers collection
+    // First try authenticating with the _superusers collection
     try {
-      await this.pb.admins.authWithPassword(
-        process.env.POCKETBASE_ADMIN_EMAIL,
-        process.env.POCKETBASE_ADMIN_PASSWORD
-      );
-      logger.info('✅ Admin authenticated with PocketBase');
-    } catch (error) {
-      logger.error('❌ Failed to authenticate admin with PocketBase', { error: error.message });
+      const email = process.env.POCKETBASE_SUPERUSER_EMAIL || process.env.POCKETBASE_ADMIN_EMAIL;
+      const password = process.env.POCKETBASE_SUPERUSER_PASSWORD || process.env.POCKETBASE_ADMIN_PASSWORD;
+      
+      logger.info('Attempting superuser authentication...');
+      await this.pb.collection('_superusers').authWithPassword(email, password);
+      logger.info('✅ Superuser authenticated with PocketBase');
+      isAuthenticated = true;
+    } catch (superuserError) {
+      logger.error('❌ Superuser authentication failed', { 
+        error: superuserError.message,
+        status: superuserError.status,
+        data: superuserError.data
+      });
+      
+      // If _superusers authentication fails, try the legacy admin endpoint for backward compatibility
+      if (process.env.POCKETBASE_ADMIN_EMAIL && process.env.POCKETBASE_ADMIN_PASSWORD) {
+        try {
+          logger.info('Attempting legacy admin authentication...');
+          await this.pb.admins.authWithPassword(
+            process.env.POCKETBASE_ADMIN_EMAIL,
+            process.env.POCKETBASE_ADMIN_PASSWORD
+          );
+          logger.info('✅ Admin authenticated with PocketBase (legacy method)');
+          logger.warn('You should migrate to using _superusers collection instead of admins');
+          isAuthenticated = true;
+        } catch (adminError) {
+          logger.error('❌ Legacy admin authentication failed', { 
+            error: adminError.message,
+            status: adminError.status,
+            data: adminError.data
+          });
+        }
+      }
+      
+      // If both _superusers and admin auth fails, try users collection
+      if (!isAuthenticated) {
+        try {
+          logger.info('Attempting regular user authentication...');
+          await this.pb.collection('users').authWithPassword(email, password);
+          logger.info('✅ Regular user authenticated with PocketBase');
+          isAuthenticated = true;
+        } catch (userError) {
+          logger.error('❌ Regular user authentication failed', { 
+            error: userError.message,
+            status: userError.status,
+            data: userError.data
+          });
+        }
+      }
     }
+    
+    if (!isAuthenticated) {
+      logger.error('❌ All authentication methods failed. Check your credentials and PocketBase setup.');
+      logger.info('In PocketBase v0.26.3+, admin accounts are now in the _superusers collection');
+    }
+    
+    return isAuthenticated;
   }
   
   // ========== Health Check Methods ==========
@@ -90,7 +247,7 @@ class PocketBaseService {
    * @param {string} userData.email - User email
    * @param {string} userData.password - User password
    * @param {string} userData.passwordConfirm - Password confirmation
-   * @param {string} userData.username - Username
+   * @param {string} userData.username - Username (optional in v0.26.3)
    * @returns {Promise<Object>} - Created user object
    */
   async registerUser(userData) {
@@ -114,14 +271,123 @@ class PocketBaseService {
   async loginUser(identity, password) {
     try {
       logger.info('Authenticating user', { identity });
-      const authData = await this.pb.collection('users').authWithPassword(
+      
+      // Determine if the identity is an email or username
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identity);
+      logger.debug('Authentication attempt details', { 
         identity,
-        password
-      );
-      logger.info('User authenticated successfully', { id: authData.record.id });
-      return authData;
+        isEmail,
+        identityType: isEmail ? 'email' : 'username' 
+      });
+      
+      // Simplify - try direct authentication first
+      try {
+        logger.debug('Attempting direct authentication', { identity });
+        const authData = await this.pb.collection('users').authWithPassword(identity, password);
+        logger.info('User authenticated successfully', { id: authData.record.id });
+        return authData;
+      } catch (directAuthError) {
+        logger.debug('Direct authentication failed', { 
+          error: directAuthError.message,
+          status: directAuthError.status
+        });
+        
+        // Try to find the user to get more information
+        try {
+          // If it's an email and direct auth failed, it's likely a password issue or the user doesn't exist
+          if (isEmail) {
+            throw directAuthError;
+          }
+          
+          // For username auth, try to find a matching user
+          logger.debug('Searching for user by listing all users');
+          const allUsers = await this.pb.collection('users').getFullList();
+          
+          // First priority: Find users with matching username field
+          let foundUser = allUsers.find(user => 
+            user.username && user.username.toLowerCase() === identity.toLowerCase()
+          );
+          
+          // Second priority: For users with undefined username, match by email prefix
+          if (!foundUser) {
+            foundUser = allUsers.find(user => 
+              (!user.username || user.username === '') && 
+              user.email.split('@')[0].toLowerCase() === identity.toLowerCase()
+            );
+            
+            if (foundUser) {
+              logger.debug('Found user by matching email prefix', {
+                identity,
+                email: foundUser.email,
+                emailPrefix: foundUser.email.split('@')[0]
+              });
+            }
+          }
+          
+          // Third priority: Try to find an exact email that equals identity@example.com
+          if (!foundUser) {
+            const potentialEmail = `${identity}@example.com`;
+            foundUser = allUsers.find(user => 
+              user.email.toLowerCase() === potentialEmail.toLowerCase()
+            );
+            
+            if (foundUser) {
+              logger.debug('Found user by constructing email', {
+                identity,
+                constructedEmail: potentialEmail,
+                actualEmail: foundUser.email
+              });
+            }
+          }
+          
+          if (foundUser) {
+            logger.debug('Found user by advanced matching', {
+              id: foundUser.id,
+              email: foundUser.email,
+              username: foundUser.username || '(undefined)'
+            });
+            
+            // Try authenticating with the email
+            logger.debug('Attempting authentication with found email', { email: foundUser.email });
+            const authData = await this.pb.collection('users').authWithPassword(foundUser.email, password);
+            logger.info('User authenticated successfully via email lookup', { id: authData.record.id });
+            return authData;
+          } else {
+            logger.warn('User not found by any matching method', { identity });
+            throw new Error(`User not found: ${identity}`);
+          }
+        } catch (fallbackError) {
+          if (fallbackError.message && fallbackError.message.includes('User not found')) {
+            throw fallbackError;
+          }
+          
+          // If it's not our custom error, it's likely the original auth error
+          logger.error('Authentication failed', { 
+            error: fallbackError.message || directAuthError.message,
+            identity
+          });
+          
+          // Check if the error indicates invalid credentials
+          if (directAuthError.status === 400) {
+            throw new Error('Invalid credentials');
+          }
+          
+          throw directAuthError;
+        }
+      }
     } catch (error) {
-      logger.error('Failed to authenticate user', { error: error.message });
+      logger.error('Login failed', { 
+        error: error.message,
+        status: error.status,
+        identity 
+      });
+      
+      if (error.message.includes('not found')) {
+        throw new Error(`User not found: ${identity}`);
+      } else if (error.message.includes('Invalid credentials')) {
+        throw new Error('Authentication failed: Invalid password');
+      }
+      
       throw error;
     }
   }
@@ -174,6 +440,38 @@ class PocketBaseService {
       logger.info('Password reset successfully');
     } catch (error) {
       logger.error('Failed to confirm password reset', { error: error.message });
+      throw error;
+    }
+  }
+  
+  // ========== Admin/Superuser Methods ==========
+
+  /**
+   * Get a superuser by ID
+   * In v0.26.3, admins are now in the _superusers collection
+   * @param {string} id - Superuser ID
+   * @returns {Promise<Object>} - Superuser record
+   */
+  async getSuperuserById(id) {
+    try {
+      return await this.pb.collection('_superusers').getOne(id);
+    } catch (error) {
+      logger.error('Failed to get superuser by ID', { id, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Find a superuser by email
+   * In v0.26.3, admins are now in the _superusers collection
+   * @param {string} email - Superuser email
+   * @returns {Promise<Object>} - Superuser record
+   */
+  async findSuperuserByEmail(email) {
+    try {
+      return await this.pb.collection('_superusers').getFirstListItem(`email="${email}"`);
+    } catch (error) {
+      logger.error('Failed to find superuser by email', { email, error: error.message });
       throw error;
     }
   }
@@ -390,4 +688,11 @@ class PocketBaseService {
 // Create a singleton instance
 const pocketBaseService = new PocketBaseService();
 
-module.exports = pocketBaseService; 
+module.exports = {
+  pb,
+  authenticateAsAdmin,
+  createSuperUser,
+  checkSuperUsersCollection,
+  configureTimeout,
+  pocketBaseService  // Export the service instance
+}; 

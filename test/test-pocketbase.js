@@ -1,5 +1,5 @@
 // test/test-pocketbase.js
-const pbService = require('../server/services/pocketbase');
+const { pocketBaseService: pbService } = require('../server/services/pocketbase');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -70,10 +70,15 @@ async function testPocketBaseService() {
       }
     }
     
-    // Test login
-    console.log('\nTesting user login...');
+    // Test login with email
+    console.log('\nTesting user login with email...');
     const authData = await pbService.loginUser(testEmail, testUser.password);
-    console.log('✅ Login successful:', authData.record.id);
+    console.log('✅ Login with email successful:', authData.record.id);
+    
+    // Test login with username
+    console.log('\nTesting user login with username...');
+    const authDataUsername = await pbService.loginUser(testUsername, testUser.password);
+    console.log('✅ Login with username successful:', authDataUsername.record.id);
     
     // Test getting complete user data
     console.log('\nTesting get complete user data...');

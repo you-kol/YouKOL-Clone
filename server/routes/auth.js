@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const pbService = require('../services/pocketbase');
+const { pocketBaseService: pbService, pb } = require('../services/pocketbase');
 const { requireAuth, attachUserData, trackLoginAttempt, resetLoginAttempts } = require('../middleware/auth');
 const logger = require('../../logger');
 const sanitizeHtml = require('sanitize-html');
@@ -103,7 +103,9 @@ router.post('/register', [
 router.post('/login', [
   // Validation middleware
   body('identity')
-    .notEmpty().withMessage('Email or username is required')
+    .notEmpty().withMessage('Email is required')
+    .isEmail().withMessage('Please enter a valid email address')
+    .normalizeEmail()
     .trim(),
   body('password')
     .notEmpty().withMessage('Password is required')
@@ -131,52 +133,88 @@ router.post('/login', [
     
     const { identity, password } = req.body;
     
-    // Authenticate with PocketBase
-    const authData = await pbService.loginUser(identity, password);
-    
-    // Reset login attempts on successful login
-    resetLoginAttempts(req.ip);
-    
-    // Create session
-    req.session.userId = authData.record.id;
-    req.session.authenticated = true;
-    req.session.userAgent = req.get('User-Agent');
-    req.session.ipAddress = req.ip;
-    
-    // Get complete user data with profile
-    const userData = await pbService.getCompleteUserData(authData.record.id);
-      
-    // Return user data without tokens
-    res.json({
-      success: true,
-      message: 'Login successful',
-      user: {
-        id: userData.id,
-        email: userData.email,
-        username: userData.username,
-        displayName: userData.display_name,
-        isOnboarded: userData.onboarding_completed || false
-      }
+    // Log authentication attempt
+    logger.info('Authentication attempt', { 
+      email: identity,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
     });
+    
+    try {
+      // Authenticate with PocketBase - updated for v0.26.3
+      const authData = await pbService.loginUser(identity, password);
+      
+      // Reset login attempts on successful login
+      resetLoginAttempts(req.ip);
+      
+      // Create session
+      req.session.userId = authData.record.id;
+      req.session.authenticated = true;
+      req.session.userAgent = req.get('User-Agent');
+      req.session.ipAddress = req.ip;
+      
+      // Get complete user data with profile
+      const userData = await pbService.getCompleteUserData(authData.record.id);
+        
+      // Return user data without tokens
+      res.json({
+        success: true,
+        message: 'Login successful',
+        user: {
+          id: userData.id,
+          email: userData.email,
+          username: userData.display_name || userData.email.split('@')[0], // Use display_name as username
+          displayName: userData.display_name,
+          isOnboarded: userData.onboarding_completed || false
+        }
+      });
+    } catch (error) {
+      // Handle errors from the authentication service
+      logger.error('Login failed', { 
+        error: error.message,
+        ip: req.ip,
+        userAgent: req.get('User-Agent')
+      });
+      
+      // Handle specific error cases
+      if (error.message.includes('User not found')) {
+        return res.status(404).json({
+          success: false,
+          message: 'Login failed: User not found',
+          errors: [{ msg: 'The email you entered doesn\'t exist in our system' }]
+        });
+      } else if (error.message.includes('Password error') || error.message.includes('Invalid password')) {
+        return res.status(400).json({
+          success: false,
+          message: 'Login failed: Invalid password',
+          errors: [{ msg: 'The password you entered is incorrect' }]
+        });
+      } else if (error.data?.password?.code === 'validation_required' || 
+                error.data?.identity?.code === 'validation_required') {
+        return res.status(400).json({
+          success: false,
+          message: 'Login failed: Missing required fields',
+          errors: error.data ? [error.data] : [{ msg: 'Email and password are required' }]
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Login failed: Invalid credentials',
+          errors: error.data ? [error.data] : [{ msg: 'Invalid login credentials' }]
+        });
+      }
+    }
   } catch (error) {
-    logger.error('Login failed', { 
+    logger.error('Unexpected error during login', { 
       error: error.message,
       ip: req.ip,
       userAgent: req.get('User-Agent')
     });
     
-    // Handle specific error cases
-    if (error.status === 400) {
-      return res.status(400).json({
-        success: false,
-        message: 'Login failed',
-        errors: error.data ? [error.data] : [{ msg: 'Invalid credentials' }]
-      });
-    }
-    
     res.status(500).json({
       success: false,
-      message: 'Login failed. Please try again later.'
+      message: 'Login failed. Please try again later.',
+      devError: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -313,6 +351,76 @@ router.post('/password-reset/confirm', [
       success: false,
       message: 'Password reset failed. Please try again later.'
     });
+  }
+});
+
+/**
+ * @route POST /api/auth/admin/login
+ * @desc Authenticate as admin or superuser with PocketBase
+ * @access Public
+ */
+router.post('/admin/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    let authData;
+    let method = '';
+
+    try {
+      // Try v0.26.3+ superuser authentication first
+      authData = await pb.collection('_superusers').authWithPassword(email, password);
+      method = 'superuser';
+    } catch (superuserError) {
+      // If superuser auth fails, try v0.21.1 admin authentication
+      try {
+        authData = await pb.admins.authWithPassword(email, password);
+        method = 'admin';
+        logger.warn('Using legacy admin authentication. Consider upgrading to _superusers.');
+      } catch (adminError) {
+        // Both methods failed
+        throw new Error(superuserError.message || adminError.message || 'Authentication failed');
+      }
+    }
+    
+    // Return successful response with token and user data
+    return res.json({
+      token: authData.token,
+      user: authData.record,
+      method
+    });
+  } catch (error) {
+    logger.error('Admin login error:', error);
+    return res.status(400).json({ 
+      error: error.message || 'Authentication failed',
+      details: error.data
+    });
+  }
+});
+
+/**
+ * @route GET /api/auth/refresh
+ * @desc Refresh the current authentication token
+ * @access Public
+ */
+router.get('/refresh', async (req, res) => {
+  try {
+    // Check if auth store has a valid token
+    if (!pb.authStore.isValid) {
+      return res.status(401).json({ error: 'No valid authentication token' });
+    }
+
+    // Return current auth data
+    return res.json({
+      token: pb.authStore.token,
+      user: pb.authStore.model
+    });
+  } catch (error) {
+    logger.error('Token refresh error:', error);
+    return res.status(401).json({ error: 'Failed to refresh token' });
   }
 });
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const pbService = require('../services/pocketbase');
+const { pocketBaseService: pbService } = require('../services/pocketbase');
 const { requireAuth, attachUserData, requireOnboarding } = require('../middleware/auth');
 const logger = require('../../logger');
 
@@ -21,7 +21,7 @@ router.get('/', requireAuth, attachUserData, async (req, res) => {
       profile: {
         id: profile.id,
         userId: profile.user,
-        displayName: profile.display_name || req.user.username,
+        username: profile.display_name || req.user.username || req.user.email.split('@')[0],
         bio: profile.bio || '',
         preferences: profile.preferences || {},
         onboardingCompleted: profile.onboarding_completed || false,
@@ -46,7 +46,7 @@ router.get('/', requireAuth, attachUserData, async (req, res) => {
           profile: {
             id: newProfile.id,
             userId: newProfile.user,
-            displayName: newProfile.display_name || req.user.username,
+            username: newProfile.display_name || req.user.username || req.user.email.split('@')[0],
             bio: newProfile.bio || '',
             preferences: newProfile.preferences || {},
             onboardingCompleted: newProfile.onboarding_completed || false,
@@ -191,8 +191,7 @@ router.put('/', [
       profile: {
         id: updatedProfile.id,
         userId: updatedProfile.user,
-        displayName: updatedProfile.display_name,
-        display_name: updatedProfile.display_name,
+        username: updatedProfile.display_name || req.user.username || req.user.email.split('@')[0],
         bio: updatedProfile.bio || '',
         preferences: updatedProfile.preferences || {},
         onboardingCompleted: updatedProfile.onboarding_completed || false
@@ -258,10 +257,10 @@ router.post('/onboarding', [
     // Extract display name if provided
     const displayName = req.body.display_name || req.body.displayName;
     
-    // Update profile with display name if provided
+    // Update profile with display name if provided (still stored as display_name in DB)
     if (displayName) {
       await pbService.updateUserProfile(req.user.id, {
-        display_name: displayName
+        display_name: displayName // Keep the DB field name as display_name
       });
     }
     

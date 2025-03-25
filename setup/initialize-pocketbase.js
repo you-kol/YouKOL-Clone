@@ -1,163 +1,136 @@
-const axios = require('axios');
-const dotenv = require('dotenv');
-const fs = require('fs');
+require('dotenv').config();
+const PocketBase = require('pocketbase/cjs');
 const path = require('path');
+const fs = require('fs');
 
-dotenv.config();
+// Create PocketBase client
+const pbUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
+const pb = new PocketBase(pbUrl);
 
-// Define the PocketBase URL from environment or use default
-const pocketbaseUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
-const adminEmail = process.env.POCKETBASE_ADMIN_EMAIL || 'admin@ngmt.com';
-const adminPassword = process.env.POCKETBASE_ADMIN_PASSWORD || 'admin@ngmt.com';
-
-// Create log directory if not exists
-const logDir = path.join(__dirname, '..', 'logs');
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir, { recursive: true });
+// Configure timeout based on PocketBase version
+if (typeof pb.http?.setTimeout === 'function') {
+  // v0.26.3+ method
+  pb.http.setTimeout(30000);
+} else if (pb.axios?.defaults) {
+  // v0.21.1 method
+  pb.axios.defaults.timeout = 30000;
 }
 
-// Setup a basic log file
-const logFile = path.join(logDir, 'pocketbase-init.log');
-const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+// Disable auto cancellation
+pb.autoCancellation(false);
 
-// Simple logging function
-function log(message) {
-  const timestamp = new Date().toISOString();
-  const logMessage = `[${timestamp}] ${message}`;
-  console.log(logMessage);
-  logStream.write(logMessage + '\n');
-}
+// Load credentials from environment
+const adminEmail = process.env.POCKETBASE_USER;
+const adminPassword = process.env.POCKETBASE_PASS;
 
-/**
- * Check if PocketBase is running
- */
-async function checkPocketBaseHealth() {
-  try {
-    const response = await axios.get(`${pocketbaseUrl}/api/health`);
-    if (response.status === 200) {
-      log('✅ PocketBase is running');
-      return true;
-    }
-  } catch (error) {
-    log(`❌ PocketBase health check failed: ${error.message}`);
+// Helper function for authentication as admin/superuser
+async function authenticateAsAdmin() {
+  if (!adminEmail || !adminPassword) {
+    throw new Error('Admin credentials not found in environment variables');
   }
-  return false;
-}
 
-/**
- * Initialize PocketBase Admin
- */
-async function initializeAdmin() {
+  let authenticationMethod = '';
+  
   try {
-    // First let's check if PocketBase is in setup mode
-    log('Checking if PocketBase needs initial setup...');
+    // First try the v0.26.3+ superuser authentication
+    await pb.collection('_superusers').authWithPassword(adminEmail, adminPassword);
+    console.log('✅ Authenticated as superuser (v0.26.3+)');
+    authenticationMethod = 'superuser';
+  } catch (superuserError) {
+    console.log('🔄 Superuser authentication failed, trying legacy admin method...');
     
     try {
-      // Try to get a token with the admin credentials
-      const response = await axios.post(`${pocketbaseUrl}/api/admins/auth-with-password`, {
-        identity: adminEmail,
-        password: adminPassword
-      });
+      // Try v0.21.1 admin authentication
+      await pb.admins.authWithPassword(adminEmail, adminPassword);
+      console.log('✅ Authenticated as admin (v0.21.1)');
+      console.warn('⚠️ Using legacy admin authentication. Please migrate to superuser (_superusers collection).');
+      authenticationMethod = 'admin';
+    } catch (adminError) {
+      // Both authentication methods failed
+      console.error('❌ Authentication failed with both superuser and admin methods');
       
-      if (response.status === 200 && response.data && response.data.token) {
-        log('✅ Admin account already exists and credentials are valid');
-        return response.data.token;
-      }
-    } catch (error) {
-      if (error.response && error.response.status === 400) {
-        log('Admin account exists but credentials are invalid');
-        throw new Error('Admin account exists but credentials are invalid. Check your .env file.');
-      }
+      // Generate helpful error message
+      const errorDetails = superuserError.message || adminError.message;
       
-      // If we get a 404, the admin doesn't exist yet
-      if (error.response && error.response.status === 404) {
-        log('Admin account does not exist. Checking if we can create it...');
+      if (errorDetails.includes('404') || superuserError.status === 404) {
+        console.error('ℹ️ The _superusers collection may not exist yet. This is expected for first-time setup.');
+        console.log('🔄 Attempting to create a superuser account...');
         
         try {
-          // Try to access the setup endpoint
-          const setupCheckResponse = await axios.get(`${pocketbaseUrl}/api/settings`);
+          // Try to create the first superuser account
+          const data = {
+            email: adminEmail,
+            password: adminPassword,
+            passwordConfirm: adminPassword
+          };
           
-          // If we reach here without error, we're not in setup mode
-          log('❌ PocketBase is already initialized but the admin account does not match the credentials');
-          throw new Error('PocketBase is already initialized. You need to use the existing admin credentials or reset PocketBase.');
-        } catch (setupError) {
-          // If we get a 404 here, we're likely in setup mode
-          if (setupError.response && setupError.response.status === 404) {
-            log('PocketBase appears to be in setup mode. Attempting to create the admin account...');
-            
-            try {
-              // Create the admin account
-              const setupResponse = await axios.post(`${pocketbaseUrl}/api/admins`, {
-                email: adminEmail,
-                password: adminPassword,
-                passwordConfirm: adminPassword
-              });
-              
-              if (setupResponse.status === 200) {
-                log('✅ Admin account created successfully');
-                
-                // Now authenticate to get the token
-                const authResponse = await axios.post(`${pocketbaseUrl}/api/admins/auth-with-password`, {
-                  identity: adminEmail,
-                  password: adminPassword
-                });
-                
-                if (authResponse.status === 200 && authResponse.data && authResponse.data.token) {
-                  log('✅ Authenticated with the new admin account');
-                  return authResponse.data.token;
-                }
-              }
-            } catch (createError) {
-              log(`❌ Failed to create admin account: ${createError.message}`);
-              if (createError.response && createError.response.data) {
-                log(`Error details: ${JSON.stringify(createError.response.data)}`);
-              }
-              throw new Error('Failed to create admin account. PocketBase may not be in setup mode.');
-            }
-          } else {
-            log(`❌ Unexpected error checking setup mode: ${setupError.message}`);
-            throw setupError;
-          }
+          // For v0.26.3+, we might need to access the admin UI first to set up
+          console.log(`⚠️ Please ensure you've accessed the PocketBase Admin UI at ${pbUrl}/_/ at least once`);
+          console.log('⚠️ This is required to initialize the _superusers collection');
+          
+          throw new Error('Manual superuser creation required via Admin UI');
+        } catch (createError) {
+          console.error('❌ Failed to create superuser:', createError.message);
+          throw new Error(`Failed to authenticate or create admin account: ${errorDetails}`);
         }
+      } else if (errorDetails.includes('401') || superuserError.status === 401 || adminError.status === 401) {
+        throw new Error('❌ Invalid admin credentials. Please check your POCKETBASE_USER and POCKETBASE_PASS environment variables.');
+      } else {
+        throw new Error(`❌ Authentication failed: ${errorDetails}`);
       }
     }
-    
-    throw new Error('Could not initialize admin account');
+  }
+  
+  return authenticationMethod;
+}
+
+// Helper function to check if collection exists
+async function collectionExists(name) {
+  try {
+    const collections = await pb.collections.getFullList();
+    return collections.some(collection => collection.name === name);
   } catch (error) {
-    log(`❌ Admin initialization failed: ${error.message}`);
+    console.error(`Error checking if collection ${name} exists:`, error);
+    return false;
+  }
+}
+
+// Helper function to create or update collection
+async function createOrUpdateCollection(name, schema) {
+  try {
+    const exists = await collectionExists(name);
+    
+    if (exists) {
+      console.log(`Collection ${name} already exists, updating...`);
+      await pb.collections.update(name, schema);
+      console.log(`✅ Updated collection ${name}`);
+    } else {
+      console.log(`Creating collection ${name}...`);
+      await pb.collections.create(schema);
+      console.log(`✅ Created collection ${name}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error creating/updating collection ${name}:`, error);
     throw error;
   }
 }
 
-async function createUserProfilesCollection(token) {
+// Main initialization function
+async function initialize() {
+  console.log(`🔄 Connecting to PocketBase at ${pbUrl}...`);
+  
   try {
-    log('Creating or updating user_profiles collection...');
+    // Try to authenticate as admin
+    const authMethod = await authenticateAsAdmin();
+    console.log(`✅ Connected to PocketBase as ${authMethod}`);
     
-    // First check if the collection already exists
-    try {
-      const checkResponse = await axios.get(`${pocketbaseUrl}/api/collections/user_profiles`, {
-        headers: { 'Authorization': token }
-      });
-      
-      if (checkResponse.status === 200) {
-        log('User profiles collection already exists, skipping creation');
-        return;
-      }
-    } catch (error) {
-      if (error.response && error.response.status === 404) {
-        log('User profiles collection does not exist, creating it now');
-      } else {
-        throw error;
-      }
-    }
-    
-    // Create the collection
-    const createResponse = await axios.post(`${pocketbaseUrl}/api/collections`, {
+    // Define schema for user_profiles collection
+    const userProfilesSchema = {
       name: 'user_profiles',
       type: 'base',
       schema: [
         {
-          name: 'user',
+          name: 'user_id',
           type: 'relation',
           required: true,
           options: {
@@ -170,111 +143,45 @@ async function createUserProfilesCollection(token) {
         {
           name: 'display_name',
           type: 'text',
-          required: true,
-          options: {
-            min: 1,
-            max: 100
-          }
+          required: true
         },
         {
           name: 'bio',
-          type: 'text',
-          required: false,
+          type: 'text'
+        },
+        {
+          name: 'avatar',
+          type: 'file',
           options: {
-            max: 500
+            maxSelect: 1,
+            maxSize: 5242880,
+            mimeTypes: ['image/jpeg', 'image/png', 'image/gif'],
+            thumbs: ['100x100']
           }
-        },
-        {
-          name: 'onboarding_completed',
-          type: 'bool',
-          required: true,
-          options: {
-            default: false
-          }
-        },
-        {
-          name: 'usage_frequency',
-          type: 'select',
-          required: false,
-          options: {
-            values: ['daily', 'weekly', 'monthly', 'rarely']
-          }
-        },
-        {
-          name: 'content_types',
-          type: 'json',
-          required: false
-        },
-        {
-          name: 'preferences',
-          type: 'json',
-          required: false
         }
       ]
-    }, {
-      headers: { 'Authorization': token }
-    });
+    };
     
-    if (createResponse.status === 200) {
-      log('✅ User profiles collection created successfully');
-      
-      // Configure collection permissions
-      const collectionId = createResponse.data.id;
-      const permissionsResponse = await axios.patch(`${pocketbaseUrl}/api/collections/${collectionId}`, {
-        listRule: '@request.auth.id != ""',        // Only authenticated users can list
-        viewRule: '@request.auth.id = user.id',    // Users can only view their own profiles
-        createRule: '@request.auth.id != ""',      // Only authenticated users can create
-        updateRule: '@request.auth.id = user.id',  // Users can only update their own profiles
-        deleteRule: '@request.auth.id = user.id'   // Users can only delete their own profiles
-      }, {
-        headers: { 'Authorization': token }
-      });
-      
-      if (permissionsResponse.status === 200) {
-        log('✅ User profiles permissions configured successfully');
-      } else {
-        log('❌ Failed to configure user profiles permissions');
-      }
+    // Create or update user_profiles collection
+    await createOrUpdateCollection('user_profiles', userProfilesSchema);
+    
+    // Print completion message
+    console.log('✅ PocketBase initialization complete!');
+    
+    // Version-specific guidance
+    if (authMethod === 'admin') {
+      console.log('\n⚠️ You are using PocketBase v0.21.1 or earlier with legacy admin authentication.');
+      console.log('⚠️ For v0.26.3+, you should migrate to the _superusers collection.');
+      console.log('⚠️ See the upgrade guide in documentation/pocketbase-v0.26.3-upgrade-guide.md');
     } else {
-      log('❌ Failed to create user profiles collection');
+      console.log('\n✅ You are using PocketBase v0.26.3+ with the _superusers collection.');
     }
+    
   } catch (error) {
-    log(`❌ Error creating user profiles collection: ${error.message}`);
-    if (error.response && error.response.data) {
-      log(`Error details: ${JSON.stringify(error.response.data)}`);
-    }
-    throw error;
+    console.error('❌ PocketBase initialization failed:', error.message);
+    process.exit(1);
   }
 }
 
-async function main() {
-  try {
-    log('Starting PocketBase initialization...');
-    
-    // Check if PocketBase is running
-    const isHealthy = await checkPocketBaseHealth();
-    if (!isHealthy) {
-      log('❌ PocketBase is not running. Please start PocketBase before running this script.');
-      return;
-    }
-    
-    // Initialize admin
-    const token = await initializeAdmin();
-    if (!token) {
-      log('❌ Failed to get admin token');
-      return;
-    }
-    
-    // Create collections
-    await createUserProfilesCollection(token);
-    
-    log('✅ PocketBase initialization completed successfully');
-  } catch (error) {
-    log(`❌ Initialization failed: ${error.message}`);
-  } finally {
-    logStream.end();
-  }
-}
-
-// Run the script
-main(); 
+// Run the initialization
+initialize(); 

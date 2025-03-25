@@ -17,6 +17,7 @@ YouKOL Clone is a standalone web application that provides image enhancement cap
 ## Authentication Implementation 
 
 - [PocketBase Authentication Guide](pocketbase-auth-implementation-guide.md) - Comprehensive guide for server-side PocketBase authentication
+- [PocketBase Update to v0.26.3](pocketbase-update-to-0.26.3.md) - Documentation for the PocketBase update to version 0.26.3
 
 ## Technical Implementation Details
 
@@ -151,3 +152,81 @@ This architecture enhances security by:
 
 - [Onboarding Flow](onboarding-flow.md)
 - [User Profile Management](user-profile-management.md)
+
+# PocketBase v0.26.3 Migration Index
+
+This document serves as an index for all files and changes related to the PocketBase v0.26.3 upgrade.
+
+## Documentation Files
+
+- [PocketBase v0.26.3 Upgrade Guide](./pocketbase-v0.26.3-upgrade-guide.md) - Comprehensive guide on breaking changes and migration strategies
+- [Migration Instructions](./migration-instructions.md) - Step-by-step instructions for completing the manual steps of the migration
+
+## Updated Files
+
+### Core Service Files
+
+1. **`server/services/pocketbase.js`**
+   - Added support for both v0.26.3+ and v0.21.1 authentication methods
+   - Updated HTTP client configuration to work with both versions
+   - Added helper functions for superuser management
+   - Improved error handling with specific error messages
+
+2. **`setup/initialize-pocketbase.js`**
+   - Complete rewrite to handle both versions
+   - Added support for creating and updating collections
+   - Enhanced error handling and user feedback
+   - Version-specific guidance during initialization
+
+3. **`test/check-pocketbase.js`**
+   - Comprehensive diagnostic tool for checking PocketBase connection
+   - Tests multiple authentication methods
+   - Verifies collection existence and schema
+   - Provides detailed migration guidance
+
+4. **`server/routes/auth.js`**
+   - Updated to support both superuser and admin authentication
+   - Added support for v0.26.3 collections
+   - Improved error handling and user feedback
+   - Added complete set of authentication endpoints
+
+### Configuration Files
+
+1. **`.env`**
+   - Updated with correct credential variable names for v0.26.3
+   - Added backward compatibility for v0.21.1
+   - Added clear comments for each configuration option
+
+## Summary of Changes
+
+The core changes to support PocketBase v0.26.3 focus on:
+
+1. **Authentication Flow**:
+   - Moving from `pb.admins` to `pb.collection('_superusers')`
+   - Adding fallback mechanisms for backward compatibility
+   - Improving error messages for authentication failures
+
+2. **HTTP Client**:
+   - Updating from `pb.axios.defaults.timeout` to `pb.http.setTimeout()`
+   - Adding version detection for the correct method
+
+3. **Collection Management**:
+   - Supporting both admin and superuser collection creation
+   - Updating schema validation and permissions
+   - Adding graceful error handling for collection operations
+
+## Testing the Migration
+
+To verify that your migration was successful:
+
+1. Run the diagnostic tool: `node test/check-pocketbase.js`
+2. Initialize collections if needed: `node setup/initialize-pocketbase.js`
+3. Verify user authentication with both regular users and superusers
+
+## Next Steps
+
+After successful migration:
+
+1. Complete any manual steps outlined in [Migration Instructions](./migration-instructions.md)
+2. Consider eventually removing legacy code paths once all instances are upgraded
+3. Update any client applications to work with the new authentication tokens

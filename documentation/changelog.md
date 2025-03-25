@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Updated PocketBase from v0.21.1 to v0.26.3 with proper authentication flow changes
+- Documentation for PocketBase v0.26.3 update process
+- Enhanced email/username detection for authentication
+- Updated test suite to verify both email and username authentication
 - Comprehensive PocketBase authentication implementation guide
 - Step-by-step implementation documents in temp/active directory:
   - Step 1: Setup PocketBase and dependencies

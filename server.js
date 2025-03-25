@@ -14,7 +14,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 
 // Import the PocketBase service
-const pbService = require('./server/services/pocketbase');
+const { pocketBaseService: pbService } = require('./server/services/pocketbase');
 
 // Import session configuration
 const configureSession = require('./server/middleware/session');
