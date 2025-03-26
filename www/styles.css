@@ -1,0 +1,928 @@
+/**
+ * ----------------------------------------
+ * ImaKOL - Main Stylesheet
+ * ----------------------------------------
+ * Table of Contents:
+ * 1. CSS Variables & Theme
+ * 2. Base & Reset Styles
+ * 3. Layout & Containers
+ * 4. Components
+ *    4.1 Buttons
+ *    4.2 Cards & Media
+ *    4.3 Camera Interface
+ *    4.4 Form Elements
+ * 5. Animations
+ * 6. Utilities
+ * 7. Media Queries
+ * ----------------------------------------
+ */
+
+/**
+ * 1. CSS Variables & Theme
+ * Centralized color scheme and design tokens
+ */
+:root {
+    /* Color palette */
+    --primary: #E9756B;
+    --primary-light: rgba(233, 117, 107, 0.1);
+    --primary-medium: rgba(233, 117, 107, 0.4);
+    --primary-gradient: linear-gradient(135deg, #E9756B, #F19A94);
+    --secondary: #5C7AEA;
+    --secondary-light: rgba(92, 122, 234, 0.1);
+    --accent: #48BB78;
+    --accent-light: rgba(72, 187, 120, 0.1);
+    
+    /* Text colors */
+    --text-dark: #333333;
+    --text-light: #6B7280;
+    --text-placeholder: rgba(107, 114, 128, 0.7);
+    
+    /* Background colors */
+    --bg-light: #F9FAFB;
+    --bg-white: #FFFFFF;
+    --bg-overlay: rgba(0, 0, 0, 0.7);
+    --bg-transparent: rgba(255, 255, 255, 0.3);
+    
+    /* Border colors */
+    --border-color: #E5E7EB;
+    
+    /* Effects */
+    --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
+    --button-shadow: 0 4px 12px var(--primary-medium);
+    --button-shadow-hover: 0 6px 16px var(--primary-medium);
+    
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    
+    /* Border radius */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-full: 50%;
+    
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-medium: 0.3s ease;
+    
+    /* Mobile viewport fix */
+    --vh: 1vh;
+}
+
+/**
+ * 2. Base & Reset Styles
+ */
+html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    height: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    background-color: var(--bg-light);
+}
+
+/* Common transitions for interactive elements */
+button, .camera-button, .camera-option, .preview-item {
+    transition: all var(--transition-fast);
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/**
+ * 3. Layout & Containers
+ */
+#app {
+    min-height: 100vh; /* Fallback */
+    min-height: calc(var(--vh, 1vh) * 100);
+    background-color: var(--bg-light);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.content-wrapper {
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: var(--bg-light);
+    flex: 1 1 auto;
+}
+
+.view-container {
+    min-height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-light);
+}
+
+.footer-container {
+    width: 100%;
+    background-color: var(--bg-light);
+    padding-bottom: env(safe-area-inset-bottom, var(--spacing-md));
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+}
+
+/* iOS safe area support */
+@supports (padding: max(0px)) {
+    .camera-controls {
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+    
+    .camera-top-controls {
+        padding-top: max(20px, env(safe-area-inset-top));
+    }
+}
+
+/**
+ * 4. Components
+ */
+/* 4.1 Buttons */
+.capture-btn {
+    background: var(--primary-gradient);
+    box-shadow: var(--button-shadow);
+    transform: translateY(0);
+    transition: all var(--transition-fast);
+}
+
+.capture-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--button-shadow-hover);
+}
+
+.upload-btn {
+    background-color: var(--bg-white);
+    color: var(--text-dark);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.float-capture-btn {
+    background: var(--primary-gradient);
+    box-shadow: var(--button-shadow);
+}
+
+.action-button {
+    padding: 10px 20px;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+.primary-button {
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: 0 4px 6px rgba(233, 117, 107, 0.25);
+}
+
+.secondary-button {
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+}
+
+/* 4.2 Cards & Media */
+.app-card {
+    background-color: var(--bg-white);
+    border-radius: var(--radius-md);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+}
+
+.post-container {
+    background-color: var(--bg-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: all var(--transition-medium);
+    width: 100%;
+    max-width: 500px;
+}
+
+.preview-item {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--spacing-md);
+    width: 100%;
+    background-color: var(--bg-white);
+}
+
+.media-grid-item {
+    aspect-ratio: 1/1;
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    position: relative;
+    box-shadow: var(--card-shadow);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.media-grid-item:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+.media-grid-item img,
+.media-grid-item video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.media-grid-item .absolute {
+    z-index: 10;
+}
+
+.add-media-btn {
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    background-color: var(--secondary-light);
+    color: var(--secondary);
+    transition: background-color 0.3s ease;
+}
+
+.add-media-btn:hover {
+    background-color: rgba(92, 122, 234, 0.2);
+}
+
+.preview-container {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.preview-container::-webkit-scrollbar {
+    display: none;
+}
+
+/* Logo styling */
+.logo-text {
+    font-weight: bold;
+}
+
+.logo-text span {
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+}
+
+/* 4.3 Camera Interface */
+.camera-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+}
+
+.camera-feed {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.camera-controls {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: linear-gradient(to top, var(--bg-overlay), transparent);
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+.camera-top-controls {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to bottom, var(--bg-overlay), transparent);
+    z-index: 1001;
+}
+
+.camera-button {
+    width: 70px;
+    height: 70px;
+    border-radius: var(--radius-full);
+    background-color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.camera-button-inner {
+    width: 60px;
+    height: 60px;
+    border-radius: var(--radius-full);
+    border: 3px solid var(--primary);
+}
+
+.camera-option {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--radius-full);
+    background-color: var(--bg-transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+}
+
+.camera-option svg {
+    width: 24px;
+    height: 24px;
+    color: white;
+}
+
+/* 4.4 Form Elements */
+.caption-box {
+    background-color: var(--primary-light);
+    border: 1px solid rgba(233, 117, 107, 0.2);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    transition: all var(--transition-fast);
+}
+
+.caption-box:focus-within {
+    box-shadow: 0 0 0 2px rgba(233, 117, 107, 0.3);
+}
+
+.caption-textarea {
+    width: 100%;
+    border: none;
+    background-color: transparent;
+    resize: none;
+    outline: none;
+    font-size: 16px;
+    color: var(--text-dark);
+}
+
+.caption-textarea::placeholder {
+    color: var(--text-placeholder);
+}
+
+/**
+ * 5. Animations
+ */
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    border: 3px solid var(--primary-light);
+    border-top-color: var(--primary);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/**
+ * 5.1 Enhancement Effects
+ */
+.enhance-btn {
+    opacity: 0.85;
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.enhance-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.enhanced-image {
+    position: relative;
+}
+
+.enhanced-badge {
+    background-color: var(--secondary);
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    z-index: 5;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.enhancement-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    z-index: 10;
+}
+
+.enhancement-loader {
+    width: 30px;
+    height: 30px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+/**
+ * 6. Utilities
+ * Helper classes for specific behaviors
+ */
+/* Empty for now - move utility classes here as needed */
+
+/**
+ * 7. Media Queries
+ */
+/* Desktop hover effects */
+@media (hover: hover) {
+    button:hover:not(:disabled) {
+        opacity: 0.9;
+    }
+    
+    .camera-button:hover {
+        transform: scale(1.05);
+    }
+    
+    .camera-option:hover {
+        background-color: rgba(255, 255, 255, 0.4);
+    }
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+    .media-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .app-card {
+        padding: var(--spacing-md);
+    }
+}
+
+/**
+ * 8. Fullscreen View
+ */
+.overflow-hidden {
+    overflow: hidden !important;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+}
+
+#fullscreen-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#fullscreen-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+/* iOS-like animation transitions */
+.transition {
+    transition-property: all;
+}
+
+.duration-200 {
+    transition-duration: 200ms;
+}
+
+.duration-300 {
+    transition-duration: 300ms;
+}
+
+.ease-in {
+    transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
+
+.ease-out {
+    transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+
+.opacity-0 {
+    opacity: 0;
+}
+
+.opacity-100 {
+    opacity: 1;
+}
+
+/* Touch gestures for iOS-like experience */
+@media (pointer: coarse) {
+    #fullscreen-image {
+        touch-action: manipulation;
+    }
+}
+
+/* Comparison view styles */
+.comparison-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+@media (min-width: 768px) {
+    .comparison-container {
+        flex-direction: row;
+    }
+}
+
+.comparison-side {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.comparison-side img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.comparison-side::after {
+    content: attr(data-label);
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+}
+
+/* Improved comparison button styles */
+.comparison-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.comparison-toggle:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.comparison-toggle svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* Enhancement label */
+.enhancement-label {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: rgba(92, 122, 234, 0.8); /* secondary color */
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    z-index: 5;
+}
+
+/* Divider for comparison view */
+.comparison-divider {
+    width: 100%;
+    height: 2px;
+    background-color: rgba(255, 255, 255, 0.3);
+    margin: 0;
+}
+
+@media (min-width: 768px) {
+    .comparison-divider {
+        width: 2px;
+        height: 100%;
+    }
+}
+
+/* Slider-based comparison view */
+.comparison-slider-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+}
+
+.comparison-img {
+    position: absolute;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.comparison-img-before {
+    z-index: 1;
+}
+
+.comparison-img-after-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%; /* Full width container instead of 50% */
+    height: 100%;
+    overflow: hidden;
+    z-index: 2;
+    /* Use clip-path to reveal only a portion */
+    clip-path: inset(0 50% 0 0); /* Initially show left 50% */
+}
+
+.comparison-img-after {
+    position: absolute;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.slider-handle-container {
+    position: absolute;
+    top: 0;
+    left: 50%; /* Initial position */
+    width: 0;
+    height: 100%;
+    z-index: 5;
+}
+
+.slider-handle {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #E9756B, #F19A94);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: ew-resize;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.8), 0 4px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    z-index: 10;
+    overflow: visible;
+}
+
+.slider-handle:hover, .slider-handle.active {
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9), 0 6px 12px rgba(0, 0, 0, 0.4);
+    transform: translate(-50%, -50%) scale(1.05);
+}
+
+.slider-line {
+    position: absolute;
+    width: 2px;
+    height: 100vh; /* Extra long to cover entire screen */
+    background-color: white;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1; /* Lower z-index to prevent conflicts */
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+    pointer-events: none; /* Prevents line from interfering with slider handle */
+}
+
+.slider-arrow {
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.slider-arrow-left {
+    left: 6px;
+}
+
+.slider-arrow-right {
+    right: 6px;
+}
+
+.comparison-label {
+    position: absolute;
+    padding: 6px 12px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 20px;
+    z-index: 4;
+    top: 60px; /* Move down to avoid overlapping with top controls */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.comparison-label-before {
+    left: 20px;
+    background-color: rgba(92, 122, 234, 0.8); /* Secondary color for After */
+}
+
+.comparison-label-after {
+    right: 20px;
+    background-color: rgba(233, 117, 107, 0.8); /* Primary color for Before */
+}
+
+/* Responsive adjustments for the slider */
+@media (max-width: 640px) {
+    .slider-handle {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .slider-arrow svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .comparison-label {
+        font-size: 10px;
+        padding: 4px 8px;
+    }
+}
+
+/* Batch enhancement styles */
+.batch-enhancement-status {
+    font-size: 0.875rem;
+    color: var(--secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.batch-enhancement-status .count {
+    font-weight: 600;
+}
+
+.enhancement-progress-bar {
+    width: 100%;
+    height: 4px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.enhancement-progress-bar-inner {
+    height: 100%;
+    border-radius: 2px;
+    background-color: var(--secondary);
+    transition: width 0.3s ease;
+}
+
+.enhancement-error-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background-color: #EF4444;
+    color: white;
+    border-radius: 50%;
+    padding: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+}
+
+/* Modal dialog for batch enhancement summary */
+.batch-summary-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.batch-summary-content {
+    background-color: white;
+    border-radius: var(--radius-lg);
+    max-width: 500px;
+    width: 100%;
+    padding: 1.5rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.batch-summary-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+}
+
+.batch-summary-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 1.5rem;
+}
+
+.batch-stat {
+    text-align: center;
+}
+
+.batch-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.batch-stat-label {
+    font-size: 0.875rem;
+    color: var(--text-light);
+}
+
+.success-value {
+    color: var(--accent);
+}
+
+.error-value {
+    color: #EF4444;
+}
+
+.pending-value {
+    color: var(--secondary);
+} 

@@ -1,0 +1,22 @@
+{
+  "appId": "com.imakol.app",
+  "appName": "ImaKOL",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "https",
+    "hostname": "app.imakol.com"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "launchAutoHide": true,
+      "backgroundColor": "#F9FAFB",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP"
+    },
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
