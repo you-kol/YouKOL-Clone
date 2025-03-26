@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- User Content Management feature allowing users to view and edit their posts
+- "My Posts" navigation button in the header for authenticated users
+- Posts listing page with responsive grid layout
+- Post editing functionality with form validation
+- New post creation capability
+- API endpoints for post management (GET, POST, PUT, DELETE)
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.1.0] - 2024-03-26
+
+### Added
 - Updated PocketBase from v0.21.1 to v0.26.3 with proper authentication flow changes
 - Documentation for PocketBase v0.26.3 update process
 - Enhanced email/username detection for authentication

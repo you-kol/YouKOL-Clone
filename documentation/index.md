@@ -230,3 +230,11 @@ After successful migration:
 1. Complete any manual steps outlined in [Migration Instructions](./migration-instructions.md)
 2. Consider eventually removing legacy code paths once all instances are upgraded
 3. Update any client applications to work with the new authentication tokens
+
+## Active Files
+
+The following files are currently being actively worked on:
+
+- **user-posts-implementation.md** - Technical implementation guide for the User Content Management feature
+- **user-content-management.md** - Documentation for the User Content Management feature
+- **user-posts-implementation-steps.md** - Detailed step-by-step implementation plan for the User Content Management feature
