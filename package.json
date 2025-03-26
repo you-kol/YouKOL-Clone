@@ -26,6 +26,7 @@
     "@capacitor/camera": "7.0.0",
     "@capacitor/cli": "7.1.0",
     "@capacitor/core": "7.1.0",
+    "@capacitor/filesystem": "7.0.0",
     "@capacitor/ios": "7.1.0",
     "axios": "1.8.4",
     "canvas": "3.1.0",
