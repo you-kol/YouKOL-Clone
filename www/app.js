@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 document.addEventListener('DOMContentLoaded', function () {
   // Check if running in Capacitor
@@ -9,6 +10,9 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('Running on device as native app');
     const platform = Capacitor.getPlatform();
     console.log(`Current platform: ${platform}`); // 'ios' or 'android'
+
+    // Make Camera available globally for use in the app
+    window.NativeCamera = Camera;
   } else {
     console.log('Running in browser');
   }
