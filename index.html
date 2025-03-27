@@ -90,6 +90,9 @@
                         @click.away="userMenuOpen = false"
                         class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10"
                     >
+                        <a href="#" @click.prevent="showPostsView = true; userMenuOpen = false; loadUserPosts()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                            My Posts
+                        </a>
                         <a href="#" @click.prevent="showProfileView = true; userMenuOpen = false; loadProfileForm()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                             My Profile
                         </a>
@@ -124,7 +127,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
                     </svg>
-                    Upload
+                    Gallery
                 </label>
                 <input 
                     id="file-upload" 
@@ -310,7 +313,7 @@
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
-                            Upload
+                            Gallery
                         </label>
                         <input 
                             id="add-more-files" 
@@ -1152,6 +1155,7 @@
                 showLoginModal: false,
                 showRegisterModal: false,
                 showProfileView: false,
+                showPostsView: false,
                 
                 // Form data
                 loginForm: {
@@ -3447,6 +3451,18 @@
                     this.isComparisonModeActive = false;
                     
                     console.log('App state has been reset');
+                },
+                
+                resetOnboarding() {
+                    this.onboardingStep = 1;
+                    this.showOnboarding = false;
+                },
+                
+                // Load user posts
+                async loadUserPosts() {
+                    console.log('Loading user posts...');
+                    // This function will be implemented in later steps
+                    // For now, it's a placeholder to enable the UI changes to work
                 },
             }
         }

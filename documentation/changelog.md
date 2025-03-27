@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Post editing functionality with form validation
 - New post creation capability
 - API endpoints for post management (GET, POST, PUT, DELETE)
+- User Content Management Step 1: UI Changes
+  - Renamed "Upload" button to "Gallery"
+  - Added "My Posts" option to user menu
+  - Added initial state variables for user posts functionality
+  - Added loadUserPosts placeholder function
 
 ### Changed
 

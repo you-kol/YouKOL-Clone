@@ -2,6 +2,14 @@
 
 This document provides a comprehensive implementation guide for the User Content Management feature, organized in a step-by-step approach for systematic development and clearer task allocation.
 
+## Implementation Status
+- [x] Step 1: Update Home Screen UI
+  - [x] 1.1: Rename "Upload" button to "Gallery"
+  - [x] 1.2: Add "My Posts" to User Menu
+  - [x] 1.3: Authentication Visibility Check (already implemented)
+- [ ] Step 2: Create Posts Page Structure
+- [ ] Step 3: Implement Save Post Functionality
+
 ## Overview
 
 The User Content Management feature allows users to:
