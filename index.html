@@ -362,36 +362,23 @@
                     
                     <!-- Generated Caption -->
                     <div class="mb-4">
-                        <div class="flex items-center mb-2">
-                            <span class="text-xs bg-[#F3F4F6] text-gray-700 px-2 py-1 rounded-full mr-2">Grok 2 Vision</span>
-                            <button @click="generateCaptionWithGrok()" class="text-xs text-[#5C7AEA] flex items-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                </svg>
-                                Regenerate
-                            </button>
-                        </div>
-                        <div class="caption-box">
-                            <textarea 
-                                x-model="generatedCaption" 
-                                class="caption-textarea"
-                                rows="3"
-                                placeholder="Your caption will appear here..."
-                            ></textarea>
-                        </div>
-                        <div x-show="generatedCaption === ''" class="text-sm text-gray-500 italic mt-1 flex items-center">
-                            <div class="w-3 h-3 bg-[#E9756B] rounded-full animate-pulse mr-2"></div>
-                            <span>Caption is being generated...</span>
-                        </div>
+                        <p class="text-gray-600" x-text="generatedCaption"></p>
                     </div>
                     
-                    <!-- Share button -->
-                    <div class="flex justify-center mt-6">
+                    <!-- Action Buttons -->
+                    <div class="flex justify-center mt-6 space-x-4">
                         <button @click="sharePost()" class="action-button primary-button flex items-center">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                             </svg>
                             Share
+                        </button>
+                        
+                        <button @click="initPostForm(); showSavePostModal = true" class="action-button secondary-button flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                            Save Post
                         </button>
                     </div>
                 </div>
@@ -607,6 +594,110 @@
                         Close
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Save Post Modal -->
+        <div 
+            x-show="showSavePostModal"
+            class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+        >
+            <div 
+                @click.away="showSavePostModal = false"
+                class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 transform scale-95"
+                x-transition:enter-end="opacity-100 transform scale-100"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 transform scale-100"
+                x-transition:leave-end="opacity-0 transform scale-95"
+            >
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Save Post</h2>
+                    <button @click="showSavePostModal = false" class="text-gray-500 hover:text-gray-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <form @submit.prevent="savePost()">
+                    <div class="mb-4">
+                        <label for="post-title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                        <input 
+                            type="text" 
+                            id="post-title" 
+                            x-model="postFormData.title" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            placeholder="Give your post a title"
+                            required
+                        >
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="post-content" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <textarea 
+                            id="post-content" 
+                            x-model="postFormData.content" 
+                            rows="4" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                            placeholder="Describe your post..."
+                            required
+                        ></textarea>
+                    </div>
+                    
+                    <!-- Media Preview -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Media Preview</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <template x-for="(url, index) in postMediaUrls" :key="index">
+                                <div class="relative aspect-square rounded overflow-hidden border border-gray-200">
+                                    <template x-if="url.type.includes('image')">
+                                        <img :src="url.src" class="h-full w-full object-cover" alt="Image preview">
+                                    </template>
+                                    <template x-if="url.type.includes('video')">
+                                        <div class="h-full w-full bg-gray-100 flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-2 pt-2">
+                        <button 
+                            type="button"
+                            @click="showSavePostModal = false"
+                            class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit"
+                            class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                            :disabled="isSavingPost"
+                        >
+                            <span x-show="!isSavingPost">Save</span>
+                            <span x-show="isSavingPost" class="flex items-center">
+                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Saving...
+                            </span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -1092,7 +1183,8 @@
                             <!-- Post preview image -->
                             <div class="aspect-video bg-gray-100 relative overflow-hidden">
                                 <template x-if="post.images && post.images.length > 0">
-                                    <img :src="post.images[0]" alt="Post thumbnail" class="w-full h-full object-cover">
+                                    <!-- Use helper function to get correct image source -->
+                                    <img :src="getImageSrc(post.images[0])" alt="Post thumbnail" class="w-full h-full object-cover">
                                 </template>
                                 <template x-if="!post.images || post.images.length === 0">
                                     <div class="w-full h-full flex items-center justify-center bg-gray-200">
@@ -1255,6 +1347,15 @@
                 userPosts: [],
                 isLoadingPosts: false,
                 postError: null,
+                
+                // Save Post state variables
+                showSavePostModal: false,
+                postFormData: {
+                    title: '',
+                    content: '',
+                    images: []
+                },
+                isSavingPost: false,
                 
                 // Form data
                 loginForm: {
@@ -1427,6 +1528,10 @@
                 async init() {
                     console.log('Initializing app...');
                     try {
+                        // Fetch CSRF token first
+                        await this.fetchCsrfToken();
+                        
+                        // Then check auth status
                         await this.checkAuthStatus();
                         
                         // Initialize enhancement preferences regardless of auth status
@@ -1440,38 +1545,74 @@
                 
                 // Fetch CSRF token from the server
                 async fetchCsrfToken() {
-                    try {
-                        console.log('Fetching CSRF token...');
-                        const response = await fetch('/api/csrf-token', {
-                            method: 'GET',
-                            credentials: 'include',
-                            headers: {
-                                'Accept': 'application/json'
+                    console.log('Starting CSRF token fetch...');
+                    
+                    // Try up to 3 times to get a token
+                    for (let attempt = 1; attempt <= 3; attempt++) {
+                        try {
+                            console.log(`Fetching CSRF token (attempt ${attempt})...`);
+                            
+                            const response = await fetch('/api/csrf-token', {
+                                method: 'GET',
+                                credentials: 'include',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'Cache-Control': 'no-cache' // Prevent caching
+                                }
+                            });
+                            
+                            if (!response.ok) {
+                                console.error('Failed to fetch CSRF token:', response.status, response.statusText);
+                                
+                                // If not the last attempt, wait before trying again
+                                if (attempt < 3) {
+                                    await new Promise(resolve => setTimeout(resolve, 1000));
+                                    continue;
+                                }
+                                return;
                             }
-                        });
-                        
-                        if (!response.ok) {
-                            console.error('Failed to fetch CSRF token:', response.status, response.statusText);
-                            return;
-                        }
-                        
-                        const data = await response.json();
-                        if (data.success) {
-                            console.log('CSRF token fetched successfully');
+                            
+                            const data = await response.json();
+                            
+                            if (!data || !data.success || !data.csrfToken) {
+                                console.error('Invalid CSRF token response:', data);
+                                
+                                // If not the last attempt, wait before trying again
+                                if (attempt < 3) {
+                                    await new Promise(resolve => setTimeout(resolve, 1000));
+                                    continue;
+                                }
+                                return;
+                            }
+                            
+                            console.log('CSRF token fetched successfully:', data.csrfToken.substring(0, 8) + '...');
                             this.csrfToken = data.csrfToken;
                             
                             // Store in localStorage for persistence across page loads
                             localStorage.setItem('csrfToken', data.csrfToken);
-                        }
-                    } catch (error) {
-                        console.error('Error fetching CSRF token:', error);
-                        
-                        // Try to get token from localStorage as fallback
-                        const storedToken = localStorage.getItem('csrfToken');
-                        if (storedToken) {
-                            this.csrfToken = storedToken;
+                            
+                            // Success - return early
+                            return;
+                            
+                        } catch (error) {
+                            console.error(`Error fetching CSRF token (attempt ${attempt}):`, error);
+                            
+                            // If not the last attempt, wait before trying again
+                            if (attempt < 3) {
+                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                continue;
+                            }
+                            
+                            // On final failure, try to get token from localStorage as fallback
+                            const storedToken = localStorage.getItem('csrfToken');
+                            if (storedToken) {
+                                console.log('Using stored CSRF token from localStorage as fallback');
+                                this.csrfToken = storedToken;
+                            }
                         }
                     }
+                    
+                    console.log('CSRF token fetch completed');
                 },
                 
                 // Add CSRF token to headers
@@ -3570,29 +3711,76 @@
                     this.postError = null;
                     
                     try {
-                        // Construct the API endpoint URL with the user filter
-                        const apiUrl = `/api/posts?filter=(user="${this.user.id}")`;
+                        // Ensure CSRF token is available
+                        if (!this.csrfToken) {
+                            await this.fetchCsrfToken();
+                            if (!this.csrfToken) {
+                                throw new Error('Could not secure the request. Please refresh and try again.');
+                            }
+                        }
                         
-                        // Fetch posts from the server
-                        const response = await fetch(apiUrl, {
+                        console.log('Fetching posts with user ID:', this.user.id);
+                        
+                        // Make the request to the posts endpoint
+                        const response = await fetch('/api/posts', {
                             method: 'GET',
                             headers: {
                                 'Content-Type': 'application/json',
                                 'X-CSRF-Token': this.csrfToken
-                            }
+                            },
+                            credentials: 'same-origin'
                         });
                         
+                        // Handle server errors first
                         if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.message || 'Failed to load posts');
+                            const errorText = await response.text();
+                            console.error(`Server returned ${response.status}: ${errorText}`);
+                            throw new Error(`Server error: ${response.status}`);
                         }
                         
-                        const data = await response.json();
-                        console.log('Loaded posts:', data);
+                        // Parse the JSON response
+                        let data;
+                        try {
+                            data = await response.json();
+                            console.log('Server response:', data);
+                        } catch (parseError) {
+                            console.error('Failed to parse server response:', parseError);
+                            throw new Error('Invalid server response format');
+                        }
                         
-                        // Update the userPosts array with the fetched data
-                        this.userPosts = data.items || [];
-                        
+                        // Process the posts data
+                        if (data && data.items && Array.isArray(data.items)) {
+                            this.userPosts = data.items;
+                            console.log(`Processed ${this.userPosts.length} posts`);
+                            
+                            // Debug the first post if available
+                            if (this.userPosts.length > 0) {
+                                const firstPost = this.userPosts[0];
+                                console.log('First post:', {
+                                    id: firstPost.id,
+                                    title: firstPost.title,
+                                    hasImages: firstPost.images && firstPost.images.length > 0,
+                                    imageCount: firstPost.images ? firstPost.images.length : 0,
+                                    firstImageType: firstPost.images && firstPost.images.length > 0 ? 
+                                        typeof firstPost.images[0] : 'N/A'
+                                });
+                                
+                                // Try to get image source for the first image to verify our helper function works
+                                if (firstPost.images && firstPost.images.length > 0) {
+                                    const imgSrc = this.getImageSrc(firstPost.images[0]);
+                                    console.log('Image source from helper:', imgSrc.substring(0, 100) + (imgSrc.length > 100 ? '...' : ''));
+                                }
+                            }
+                            
+                            // If no posts found, show a message
+                            if (this.userPosts.length === 0) {
+                                this.postError = 'You have not created any posts yet.';
+                            }
+                        } else {
+                            console.warn('Unexpected data format:', data);
+                            this.userPosts = [];
+                            this.postError = 'Could not load posts. Unexpected data format.';
+                        }
                     } catch (error) {
                         console.error('Error loading posts:', error);
                         this.postError = error.message || 'Failed to load posts. Please try again.';
@@ -3617,11 +3805,21 @@
                     }
                     
                     try {
+                        // Ensure CSRF token is available
+                        if (!this.csrfToken) {
+                            await this.fetchCsrfToken();
+                            if (!this.csrfToken) {
+                                throw new Error('Could not secure the request. Please refresh and try again.');
+                            }
+                        }
+                        
                         const response = await fetch(`/api/posts/${postId}`, {
                             method: 'DELETE',
                             headers: {
+                                'Content-Type': 'application/json',
                                 'X-CSRF-Token': this.csrfToken
-                            }
+                            },
+                            credentials: 'same-origin'
                         });
                         
                         if (!response.ok) {
@@ -3640,8 +3838,195 @@
                         alert(error.message || 'Failed to delete post. Please try again.');
                     }
                 },
+                
+                // Initialize Save Post form data
+                initPostForm() {
+                    // Pre-fill the content with the generated caption
+                    this.postFormData = {
+                        title: '',
+                        content: this.generatedCaption || '',
+                        images: []
+                    };
+                },
+                
+                // Save a post
+                async savePost() {
+                    if (!this.isAuthenticated) {
+                        alert('You must be logged in to save posts.');
+                        this.showSavePostModal = false;
+                        this.showLoginModal = true;
+                        return;
+                    }
+                    
+                    // Validate form
+                    if (!this.postFormData.title.trim()) {
+                        alert('Please enter a title for your post.');
+                        return;
+                    }
+                    
+                    if (!this.postFormData.content.trim()) {
+                        alert('Please enter a description for your post.');
+                        return;
+                    }
+                    
+                    this.isSavingPost = true;
+                    
+                    try {
+                        // Ensure CSRF token is available
+                        if (!this.csrfToken) {
+                            await this.fetchCsrfToken();
+                            if (!this.csrfToken) {
+                                throw new Error('Could not secure the request. Please refresh and try again.');
+                            }
+                        }
+                        
+                        // Prepare form data
+                        const formData = new FormData();
+                        formData.append('title', this.postFormData.title);
+                        formData.append('content', this.postFormData.content);
+                        
+                        // Add each media file - make sure we're using the correct field name 'images'
+                        if (this.selectedFiles && this.selectedFiles.length > 0) {
+                            console.log(`Attaching ${this.selectedFiles.length} files to the form`);
+                            this.selectedFiles.forEach((file, index) => {
+                                // Use 'images' as the field name, not 'images[index]'
+                                formData.append('images', file);
+                            });
+                        }
+                        
+                        // Send request to create a new post
+                        console.log('Submitting post with CSRF token:', this.csrfToken);
+                        const response = await fetch('/api/posts', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-CSRF-Token': this.csrfToken
+                            },
+                            credentials: 'same-origin'
+                        });
+                        
+                        // Get the response data
+                        let responseData;
+                        try {
+                            responseData = await response.json();
+                        } catch (e) {
+                            responseData = { message: 'Could not parse server response' };
+                        }
+                        
+                        if (!response.ok) {
+                            console.error('Post save error:', responseData);
+                            throw new Error(responseData.message || responseData.error?.message || 'Failed to save post');
+                        }
+                        
+                        // Close the modal and show success message
+                        this.showSavePostModal = false;
+                        alert('Post saved successfully!');
+                        
+                        // Reset the form
+                        this.postFormData = {
+                            title: '',
+                            content: '',
+                            images: []
+                        };
+                        
+                        // Reload posts if we're on the profile page
+                        if (this.loadUserPosts && typeof this.loadUserPosts === 'function') {
+                            await this.loadUserPosts();
+                        }
+                        
+                    } catch (error) {
+                        console.error('Error saving post:', error);
+                        alert(error.message || 'Failed to save post. Please try again.');
+                    } finally {
+                        this.isSavingPost = false;
+                    }
+                },
+                
+                // Helper function to get image source from post image data
+                getImageSrc(imageData) {
+                    // Handle null/undefined case
+                    if (!imageData) {
+                        console.warn('No image data provided');
+                        return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjY2NjY2MiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0ibHVjaWRlIGx1Y2lkZS1pbWFnZSI+PHJlY3Qgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiB4PSIzIiB5PSIzIiByeD0iMiIvPjxjaXJjbGUgY3g9IjguNSIgY3k9IjguNSIgcj0iMS41Ii8+PHBhdGggZD0ibTIxIDE1LTMuODYtMy44NmEyIDIgMCAwIDAtMi44MiAwTDUgMjAiLz48L3N2Zz4=';
+                    }
+                    
+                    try {
+                        // If image is a string (URL), return it directly
+                        if (typeof imageData === 'string') {
+                            // Check if it's already a data URL
+                            if (imageData.startsWith('data:')) {
+                                return imageData;
+                            }
+                            
+                            // Check if it's an absolute URL
+                            if (imageData.startsWith('http')) {
+                                return imageData;
+                            }
+                            
+                            // It could be a relative path from PocketBase
+                            const pbBaseUrl = 'http://34.96.211.121:8090'; // Should match your PocketBase server
+                            if (!imageData.startsWith('/')) {
+                                imageData = '/' + imageData;
+                            }
+                            return `${pbBaseUrl}${imageData}`;
+                        }
+                        
+                        // Handle different object formats
+                        
+                        // Our custom base64 object format
+                        if (imageData.data && typeof imageData.data === 'string') {
+                            return imageData.data;
+                        }
+                        
+                        // PocketBase file object
+                        if (imageData.file) {
+                            const pbBaseUrl = 'http://34.96.211.121:8090'; // Should match your PocketBase server
+                            return `${pbBaseUrl}/api/files/${imageData.collectionId || 'posts'}/${imageData.id}/${imageData.file}`;
+                        }
+                        
+                        // URL property
+                        if (imageData.url) {
+                            return imageData.url;
+                        }
+                        
+                        // Src property
+                        if (imageData.src) {
+                            return imageData.src;
+                        }
+                        
+                        // Handle PocketBase expand format
+                        if (imageData.expand) {
+                            return this.getImageSrc(imageData.expand);
+                        }
+                        
+                        // Last attempt - try to find any property that looks like a URL or data URL
+                        for (const key in imageData) {
+                            const value = imageData[key];
+                            if (typeof value === 'string' && 
+                                (value.startsWith('http') || value.startsWith('data:') || value.includes('/api/files/'))) {
+                                return value;
+                            }
+                        }
+                        
+                        // Log what we received to help debugging
+                        console.warn('Unknown image format:', imageData);
+                        if (typeof imageData === 'object') {
+                            console.warn('Image object keys:', Object.keys(imageData));
+                        }
+                    } catch (err) {
+                        console.error('Error processing image source:', err);
+                    }
+                    
+                    // Fallback to placeholder
+                    return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjY2NjY2MiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBjbGFzcz0ibHVjaWRlIGx1Y2lkZS1pbWFnZSI+PHJlY3Qgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiB4PSIzIiB5PSIzIiByeD0iMiIvPjxjaXJjbGUgY3g9IjguNSIgY3k9IjguNSIgcj0iMS41Ii8+PHBhdGggZD0ibTIxIDE1LTMuODYtMy44NmEyIDIgMCAwIDAtMi44MiAwTDUgMjAiLz48L3N2Zz4=';
+                },
             }
         }
+        
+        // Initialize Alpine.js app
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('appState', appState);
+        });
     </script>
 </body>
 </html>

@@ -567,6 +567,398 @@ app.get('/api/health/pocketbase', async (req, res) => {
   return res.status(503).json({ status: 'error', message: 'PocketBase is not responding' });
 });
 
+// Authentication middleware
+function authenticatedOnly(req, res, next) {
+  console.log('Authentication check', {
+    hasSession: !!req.session,
+    sessionUserId: req.session?.userId,
+    sessionData: req.session
+  });
+  
+  if (!req.session || !req.session.userId) {
+    console.log('Authentication failed - missing session or userId');
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+  
+  // Set req.user.id to the session userId for compatibility with existing code
+  req.user = {
+    id: req.session.userId
+  };
+  
+  console.log('Authentication successful - user:', req.user);
+  next();
+}
+
+// Get user posts
+app.get('/api/posts', authenticatedOnly, csrfProtection, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Log the user ID to verify it's correct
+    logger.info(`Fetching posts for user: ${userId}`);
+    
+    try {
+      // Direct API call following PocketBase docs, using baseUrl + path
+      const baseUrl = process.env.POCKETBASE_URL || 'http://127.0.0.1:8090';
+      logger.info(`Using PocketBase URL: ${baseUrl}`);
+      
+      // Manual Axios call to PocketBase API to control the exact request format
+      const response = await axios.get(`${baseUrl}/api/collections/posts/records`, {
+        params: {
+          page: 1,
+          perPage: 50,
+          sort: '-created'
+        },
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // Get all posts from successful API response
+      const allPosts = response.data;
+      logger.info(`Fetched ${allPosts.items?.length || 0} total posts`);
+      
+      // Filter posts by user ID on the server side
+      const userPosts = {
+        page: allPosts.page,
+        perPage: allPosts.perPage,
+        totalItems: 0,
+        totalPages: allPosts.totalPages,
+        items: allPosts.items?.filter(post => post.user === userId) || []
+      };
+      
+      // Update the counts
+      userPosts.totalItems = userPosts.items.length;
+      userPosts.totalPages = Math.ceil(userPosts.totalItems / userPosts.perPage);
+      
+      logger.info(`Found ${userPosts.items.length} posts for user ${userId}`);
+      
+      res.json(userPosts);
+    } catch (apiError) {
+      // Handle API-specific error
+      logger.error('PocketBase API Error:', apiError);
+      
+      // Try an alternative approach - use a GET request for a single user by ID
+      // This avoids the filter altogether
+      try {
+        logger.info(`Trying alternative approach: get user with expand`);
+        
+        // Get the user record with expanded posts
+        const userData = await pbService.pb.collection('users').getOne(userId, {
+          expand: 'posts'
+        });
+        
+        // Check if we have expanded posts data
+        if (userData.expand && userData.expand.posts) {
+          logger.info(`Found ${userData.expand.posts.length} posts via user expansion`);
+          
+          // Format response to match expected structure
+          const formattedResponse = {
+            page: 1,
+            perPage: 50,
+            totalItems: userData.expand.posts.length,
+            totalPages: 1,
+            items: userData.expand.posts
+          };
+          
+          return res.json(formattedResponse);
+        } else {
+          // No posts found or expansion not working
+          logger.info(`No posts found via expansion or expansion not supported`);
+          
+          // Return empty result set
+          return res.json({
+            page: 1,
+            perPage: 50,
+            totalItems: 0,
+            totalPages: 0,
+            items: []
+          });
+        }
+      } catch (fallbackError) {
+        logger.error('Fallback approach also failed:', fallbackError);
+        throw apiError; // Rethrow original error for consistent handling
+      }
+    }
+  } catch (error) {
+    logger.error('Error fetching posts:', error);
+    
+    // Add more detailed error information
+    const errorDetails = {
+      message: error.message,
+      status: error.response?.status || error.status || 500,
+      data: error.response?.data || error.data || {},
+      url: error.config?.url || error.url || 'unknown'
+    };
+    
+    res.status(errorDetails.status).json({ 
+      success: false, 
+      message: 'Failed to fetch posts', 
+      error: errorDetails 
+    });
+  }
+});
+
+// Create new post
+app.post('/api/posts', authenticatedOnly, csrfProtection, async (req, res) => {
+  // Create a safe wrapper for upload middleware
+  const handleUpload = (req, res) => {
+    return new Promise((resolve, reject) => {
+      upload.array('images', 10)(req, res, (err) => {
+        if (err) {
+          logger.error('Upload error:', err);
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  };
+
+  try {
+    // First handle the file upload if any
+    try {
+      await handleUpload(req, res);
+    } catch (uploadError) {
+      logger.error('File upload failed:', uploadError);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'File upload failed', 
+        error: uploadError.message 
+      });
+    }
+
+    const { title, content } = req.body;
+    const userId = req.user.id;
+    
+    logger.info(`Creating post for user: ${userId} with title: ${title}`);
+    
+    // Validate input
+    if (!title || !content) {
+      return res.status(400).json({ success: false, message: 'Title and content are required' });
+    }
+    
+    // Prepare post data
+    const postData = {
+      title: title,
+      content: content,
+      user: userId,
+      images: []
+    };
+    
+    // Handle image uploads if provided
+    if (req.files && req.files.length > 0) {
+      logger.info(`Processing ${req.files.length} uploaded files`);
+      
+      for (const file of req.files) {
+        try {
+          // Read the file content as base64
+          const fileBuffer = fs.readFileSync(file.path);
+          const base64Data = fileBuffer.toString('base64');
+          
+          // Create an object with image metadata and data
+          const imageData = {
+            fileName: file.originalname,
+            mimeType: file.mimetype,
+            data: `data:${file.mimetype};base64,${base64Data}`
+          };
+          
+          logger.info(`File processed as base64: ${file.originalname}`);
+          
+          // Add image data to post data
+          postData.images.push(imageData);
+          
+          // Clean up temporary file
+          fs.unlinkSync(file.path);
+        } catch (fileError) {
+          logger.error('Error processing file:', fileError);
+          // Continue with other files even if one fails
+        }
+      }
+    }
+    
+    // Create the post
+    logger.info('Creating post in PocketBase with data');
+    const post = await pbService.pb.collection('posts').create(postData);
+    
+    res.status(201).json({ success: true, post });
+  } catch (error) {
+    logger.error('Error creating post:', error);
+    
+    const errorDetails = {
+      message: error.message,
+      status: error.status || 500,
+      data: error.data || {},
+    };
+    
+    res.status(errorDetails.status).json({ 
+      success: false, 
+      message: 'Failed to create post', 
+      error: errorDetails 
+    });
+  }
+});
+
+// Update existing post
+app.put('/api/posts/:id', authenticatedOnly, csrfProtection, async (req, res) => {
+  // Create a safe wrapper for upload middleware
+  const handleUpload = (req, res) => {
+    return new Promise((resolve, reject) => {
+      upload.array('images', 10)(req, res, (err) => {
+        if (err) {
+          logger.error('Upload error:', err);
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  };
+
+  try {
+    // First handle the file upload if any
+    try {
+      await handleUpload(req, res);
+    } catch (uploadError) {
+      logger.error('File upload failed:', uploadError);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'File upload failed', 
+        error: uploadError.message 
+      });
+    }
+
+    const { id } = req.params;
+    const { title, content, existingImages } = req.body;
+    const userId = req.user.id;
+    
+    logger.info(`Updating post ${id} for user ${userId}`);
+    
+    // Validate input
+    if (!title || !content) {
+      return res.status(400).json({ success: false, message: 'Title and content are required' });
+    }
+    
+    // Check if post exists and belongs to the user
+    try {
+      const existingPost = await pbService.pb.collection('posts').getOne(id);
+      
+      if (existingPost.user !== userId) {
+        logger.warn(`User ${userId} attempted to update post ${id} which belongs to user ${existingPost.user}`);
+        return res.status(403).json({ success: false, message: 'You do not have permission to edit this post' });
+      }
+      
+      logger.info(`Post ${id} verified to belong to user ${userId}`);
+    } catch (err) {
+      logger.error(`Post ${id} not found:`, err);
+      return res.status(404).json({ success: false, message: 'Post not found' });
+    }
+    
+    // Prepare update data
+    const updateData = {
+      title: title,
+      content: content,
+      images: existingImages ? JSON.parse(existingImages) : []
+    };
+    
+    // Handle image uploads if provided
+    if (req.files && req.files.length > 0) {
+      logger.info(`Processing ${req.files.length} new uploaded files for post update`);
+      
+      for (const file of req.files) {
+        try {
+          // Read the file content as base64
+          const fileBuffer = fs.readFileSync(file.path);
+          const base64Data = fileBuffer.toString('base64');
+          
+          // Create an object with image metadata and data
+          const imageData = {
+            fileName: file.originalname,
+            mimeType: file.mimetype,
+            data: `data:${file.mimetype};base64,${base64Data}`
+          };
+          
+          logger.info(`File processed as base64: ${file.originalname}`);
+          
+          // Add image data to update data
+          updateData.images.push(imageData);
+          
+          // Clean up temporary file
+          fs.unlinkSync(file.path);
+        } catch (fileError) {
+          logger.error('Error processing file:', fileError);
+          // Continue with other files even if one fails
+        }
+      }
+    }
+    
+    // Update the post
+    logger.info(`Updating post ${id} with new data`);
+    const post = await pbService.pb.collection('posts').update(id, updateData);
+    
+    res.json({ success: true, post });
+  } catch (error) {
+    logger.error('Error updating post:', error);
+    
+    const errorDetails = {
+      message: error.message,
+      status: error.status || 500,
+      data: error.data || {},
+    };
+    
+    res.status(errorDetails.status).json({ 
+      success: false, 
+      message: 'Failed to update post', 
+      error: errorDetails 
+    });
+  }
+});
+
+// Delete post
+app.delete('/api/posts/:id', authenticatedOnly, csrfProtection, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    logger.info(`Attempting to delete post ${id} for user ${userId}`);
+    
+    // Check if post exists and belongs to the user
+    try {
+      const existingPost = await pbService.pb.collection('posts').getOne(id);
+      
+      if (existingPost.user !== userId) {
+        logger.warn(`User ${userId} attempted to delete post ${id} which belongs to user ${existingPost.user}`);
+        return res.status(403).json({ success: false, message: 'You do not have permission to delete this post' });
+      }
+      
+      logger.info(`Post ${id} verified to belong to user ${userId}`);
+    } catch (err) {
+      logger.error(`Post ${id} not found:`, err);
+      return res.status(404).json({ success: false, message: 'Post not found' });
+    }
+    
+    // Delete the post
+    await pbService.pb.collection('posts').delete(id);
+    logger.info(`Post ${id} deleted successfully`);
+    
+    res.json({ success: true, message: 'Post deleted successfully' });
+  } catch (error) {
+    logger.error('Error deleting post:', error);
+    
+    const errorDetails = {
+      message: error.message,
+      status: error.status || 500,
+      data: error.data || {},
+    };
+    
+    res.status(errorDetails.status).json({ 
+      success: false, 
+      message: 'Failed to delete post', 
+      error: errorDetails 
+    });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   logger.error(err.stack);
