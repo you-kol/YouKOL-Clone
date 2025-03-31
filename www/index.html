@@ -388,65 +388,6 @@
             </button>
         </div>
 
-        <!-- Camera Interface -->
-        <div x-show="cameraActive" class="camera-container">
-            <div class="camera-top-controls">
-                <button @click="closeCamera()"
-                    class="text-white p-2 rounded-full bg-black bg-opacity-30 backdrop-blur-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-                <button @click="toggleFlash()"
-                    class="text-white p-2 rounded-full bg-black bg-opacity-30 backdrop-blur-sm">
-                    <svg x-show="!flashActive" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
-                        viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <svg x-show="flashActive" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor"
-                        viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                </button>
-            </div>
-
-            <video id="camera-feed" class="camera-feed" autoplay playsinline></video>
-
-            <div class="camera-controls">
-                <div class="camera-option" @click="toggleCamera()">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
-                </div>
-                <div class="camera-button" @click="takePicture()">
-                    <div class="camera-button-inner"></div>
-                </div>
-                <div class="camera-option" @click="captureVideo()">
-                    <svg x-show="!isRecording" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    <svg x-show="isRecording" xmlns="http://www.w3.org/2000/svg" class="text-red-500"
-                        fill="currentColor" viewBox="0 0 24 24" stroke="currentColor">
-                        <circle cx="12" cy="12" r="8" />
-                    </svg>
-                </div>
-            </div>
-
-            <!-- Recording indicator -->
-            <div x-show="isRecording"
-                class="absolute top-4 right-4 flex items-center bg-black bg-opacity-50 rounded-full px-3 py-1">
-                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"></div>
-                <span class="text-white text-xs">REC</span>
-            </div>
-        </div>
-
         <!-- Fullscreen Media View -->
         <div x-show="isFullscreenViewOpen" class="fixed inset-0 z-50 bg-black flex items-center justify-center"
             x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0"
@@ -1048,15 +989,6 @@
                 currentState: 'initial', // initial, preview, processing, complete
                 selectedFiles: [],
                 postMediaUrls: [],
-                cameraActive: false,
-                mediaStream: null,
-                videoElement: null,
-                facingMode: 'environment', // 'environment' for back camera, 'user' for front camera
-                flashActive: false,
-                isRecording: false,
-                mediaRecorder: null,
-                recordedChunks: [],
-                capturedImage: null,
                 generatedCaption: '',
 
                 // Authentication state
@@ -1766,230 +1698,52 @@
                 },
 
                 // Existing methods
-                async captureMedia() {
-                    try {
-                        // Request camera permissions
-                        const constraints = {
-                            video: {
-                                facingMode: this.facingMode,
-                                width: { ideal: 1920 },
-                                height: { ideal: 1080 }
-                            }
-                        };
-
-                        this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-                        this.videoElement = document.getElementById('camera-feed');
-                        this.videoElement.srcObject = this.mediaStream;
-
-                        this.cameraActive = true;
-                    } catch (error) {
-                        console.error('Error accessing camera:', error);
-                        alert('Could not access camera. Please make sure you have granted camera permissions and are using a compatible browser.');
-
-                        // Fallback to file upload if camera access fails
-                        document.getElementById('file-upload').click();
-                    }
-                },
-
-                closeCamera() {
-                    if (this.mediaStream) {
-                        // Stop all tracks
-                        this.mediaStream.getTracks().forEach(track => track.stop());
-                        this.mediaStream = null;
-                    }
-
-                    // Stop recording if active
-                    if (this.isRecording && this.mediaRecorder) {
-                        this.mediaRecorder.stop();
-                    }
-
-                    this.cameraActive = false;
-                    this.isRecording = false;
-                },
-
-                toggleCamera() {
-                    // Switch between front and back cameras
-                    this.facingMode = this.facingMode === 'environment' ? 'user' : 'environment';
-
-                    // Close current camera stream
-                    if (this.mediaStream) {
-                        this.mediaStream.getTracks().forEach(track => track.stop());
-                    }
-
-                    // Restart camera with new facing mode
-                    this.captureMedia();
-                },
-
-                toggleFlash() {
-                    if (this.mediaStream) {
-                        const track = this.mediaStream.getVideoTracks()[0];
-
-                        // Check if torch/flash is supported
-                        if (track && track.getCapabilities && track.getCapabilities().torch) {
-                            this.flashActive = !this.flashActive;
-                            track.applyConstraints({
-                                advanced: [{ torch: this.flashActive }]
-                            }).catch(e => {
-                                console.error('Flash not supported:', e);
-                                alert('Flash/torch is not supported on this device.');
-                                this.flashActive = false;
-                            });
-                        } else {
-                            alert('Flash/torch is not supported on this device.');
-                        }
-                    }
-                },
-
-                takePicture() {
-                    if (!this.videoElement || !this.mediaStream) return;
-
-                    // Create a canvas element to capture the frame
-                    const canvas = document.createElement('canvas');
-                    canvas.width = this.videoElement.videoWidth;
-                    canvas.height = this.videoElement.videoHeight;
-
-                    // Draw the current video frame to the canvas
-                    const context = canvas.getContext('2d');
-                    context.drawImage(this.videoElement, 0, 0, canvas.width, canvas.height);
-
-                    // Convert canvas to blob
-                    canvas.toBlob(blob => {
-                        // Create a File object from the blob
-                        const fileName = `image_${new Date().getTime()}.jpg`;
-                        const imageFile = new File([blob], fileName, { type: 'image/jpeg' });
-
-                        // Add the captured image to selected files
-                        this.selectedFiles.push(imageFile);
-
-                        // Close camera and show preview
-                        this.closeCamera();
-                        this.currentState = 'preview';
-                    }, 'image/jpeg', 0.9);
-                },
-
-                captureVideo() {
-                    if (!this.videoElement || !this.mediaStream) return;
-
-                    if (!this.isRecording) {
-                        // Start recording
-                        this.recordedChunks = [];
-                        this.isRecording = true;
-
-                        // Add audio to stream if needed
-                        navigator.mediaDevices.getUserMedia({ audio: true })
-                            .then(audioStream => {
-                                // Combine video and audio tracks
-                                const combinedStream = new MediaStream([
-                                    ...this.mediaStream.getVideoTracks(),
-                                    ...audioStream.getAudioTracks()
-                                ]);
-
-                                // Create media recorder
-                                this.mediaRecorder = new MediaRecorder(combinedStream, {
-                                    mimeType: this.getSupportedMimeType()
-                                });
-
-                                // Handle data available event
-                                this.mediaRecorder.ondataavailable = (event) => {
-                                    if (event.data.size > 0) {
-                                        this.recordedChunks.push(event.data);
-                                    }
-                                };
-
-                                // Handle recording stop
-                                this.mediaRecorder.onstop = () => {
-                                    // Create blob from recorded chunks
-                                    const blob = new Blob(this.recordedChunks, {
-                                        type: this.getSupportedMimeType()
-                                    });
-
-                                    // Create a File object from the blob
-                                    const fileName = `video_${new Date().getTime()}.${this.getFileExtension(this.getSupportedMimeType())}`;
-                                    const videoFile = new File([blob], fileName, { type: this.getSupportedMimeType() });
-
-                                    // Add the recorded video to selected files
-                                    this.selectedFiles.push(videoFile);
-
-                                    // Close camera and show preview
-                                    this.closeCamera();
-                                    this.currentState = 'preview';
-
-                                    // Stop audio tracks
-                                    audioStream.getTracks().forEach(track => track.stop());
-                                };
-
-                                // Start recording
-                                this.mediaRecorder.start(100); // Collect data every 100ms
-                            })
-                            .catch(error => {
-                                console.error('Error accessing audio:', error);
-
-                                // Fall back to video-only recording
-                                this.recordVideo(this.mediaStream);
-                            });
-                    } else {
-                        // Stop recording
-                        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-                            this.mediaRecorder.stop();
-                        }
-                        this.isRecording = false;
-                    }
-                },
-
-                // Fallback for video-only recording
-                recordVideo(stream) {
-                    this.mediaRecorder = new MediaRecorder(stream, {
-                        mimeType: this.getSupportedMimeType()
-                    });
-
-                    this.mediaRecorder.ondataavailable = (event) => {
-                        if (event.data.size > 0) {
-                            this.recordedChunks.push(event.data);
-                        }
-                    };
-
-                    this.mediaRecorder.onstop = () => {
-                        const blob = new Blob(this.recordedChunks, {
-                            type: this.getSupportedMimeType()
-                        });
-
-                        const fileName = `video_${new Date().getTime()}.${this.getFileExtension(this.getSupportedMimeType())}`;
-                        const videoFile = new File([blob], fileName, { type: this.getSupportedMimeType() });
-
-                        this.selectedFiles.push(videoFile);
-                        this.closeCamera();
-                        this.currentState = 'preview';
-                    };
-
-                    this.mediaRecorder.start(100);
-                },
-
-                getSupportedMimeType() {
-                    const types = [
-                        'video/webm;codecs=vp9,opus',
-                        'video/webm;codecs=vp8,opus',
-                        'video/webm',
-                        'video/mp4',
-                        'video/mpeg'
-                    ];
-
-                    for (const type of types) {
-                        if (MediaRecorder.isTypeSupported(type)) {
-                            return type;
-                        }
-                    }
-
-                    return 'video/webm'; // Default, might not work on all browsers
-                },
-
-                getFileExtension(mimeType) {
-                    if (mimeType.includes('webm')) return 'webm';
-                    if (mimeType.includes('mp4')) return 'mp4';
-                    if (mimeType.includes('mpeg')) return 'mp4';
-                    return 'webm'; // Default
-                },
-
                 handleFileUpload(event) {
+                async captureMedia() {
+                        try {
+                            // Import Camera module from Capacitor
+                            const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+
+                            // Define camera options
+                            const image = await Camera.getPhoto({
+                                quality: 90,
+                                allowEditing: false,
+                                resultType: CameraResultType.Uri,
+                                source: CameraSource.Prompt,
+                                promptLabelHeader: 'Choose Option',
+                                promptLabelCancel: 'Cancel',
+                                promptLabelPhoto: 'From Photos',
+                                promptLabelPicture: 'Take Picture'
+                            });
+
+                            if (image && image.webPath) {
+                                // Convert the webPath to a File object
+                                const response = await fetch(image.webPath);
+                                const blob = await response.blob();
+
+                                // Determine file type
+                                const mimeType = image.format === 'jpeg' ? 'image/jpeg' : 'image/png';
+                                const fileName = `image_${new Date().getTime()}.${image.format || 'jpg'}`;
+
+                                // Create a File object
+                                const imageFile = new File([blob], fileName, { type: mimeType });
+
+                                // Add to selected files
+                                this.selectedFiles.push(imageFile);
+
+                                // Show preview
+                                this.currentState = 'preview';
+                            }
+                        } catch (error) {
+                            console.error('Error capturing image:', error);
+
+                            // Fallback to file upload if camera access fails
+                            if (error.message !== 'User cancelled photos app') {
+                                alert('Could not access camera. Please make sure you have granted camera permissions.');
+                                document.getElementById('file-upload').click();
+                            }
+                        }
+                    },
                     const files = Array.from(event.target.files);
                     if (files.length > 0) {
                         this.selectedFiles = files;
